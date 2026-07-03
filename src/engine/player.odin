@@ -386,11 +386,11 @@ player_update_vertical_velocity :: proc(p: ^Player, dt: f32) {
 }
 
 player_update_position :: proc(p: ^Player, dt: f32) {
-    player_update_coord(p, &p.velocity.x, &p.position.x, &p.remainder.x, player_attempt_move_x, player_move_x, dt)
-    player_update_coord(p, &p.velocity.y, &p.position.y, &p.remainder.y, player_attempt_move_y, player_move_y, dt)
+    player_update_coord(p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
+    player_update_coord(p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
 }
 
-player_update_coord :: proc(p: ^Player, speed: ^f32, coord: ^f32, remainder: ^f32, attempt_move: proc(p: ^Player, offset: f32) -> bool, move: proc(p: ^Player, offset: f32), dt: f32) {
+player_update_coord :: proc(p: ^Player, speed: ^f32, remainder: ^f32, attempt_move: proc(p: ^Player, offset: f32) -> bool, move: proc(p: ^Player, offset: f32), collide: proc(p: ^Player), dt: f32) {
     remainder^ += speed^ * dt
     displacement := math.round(remainder^)
     if displacement != 0 {
@@ -408,60 +408,14 @@ player_update_coord :: proc(p: ^Player, speed: ^f32, coord: ^f32, remainder: ^f3
         }
     } else if speed^ != 0 {
         if !attempt_move(p, sign(speed^)) {
-            speed^ = 0
-            remainder^ = 0
+            collide(p)
         }
     }
 }
 
-/*player_update_position_x :: proc(p: ^Player, dt: f32) {
-    p.remainder.x += p.velocity.x * dt
-    displacement := math.round(p.remainder.x)
-    if displacement != 0 {
-        p.remainder.x -= displacement
-        step := sign(displacement)
-
-        for displacement != 0 {
-            if !player_attempt_move_x(p, step) {
-                break
-            }
-
-            displacement -= step
-        }
-    } else if p.velocity.x != 0 {
-        if player_collision_with_solid_at(p, Vector2{sign(p.velocity.x), 0}) != nil {
-            p.velocity.x = 0
-            p.remainder.x = 0
-        }
-    }
-}*/
-
-/*player_update_position_y :: proc(p: ^Player, dt: f32) {
-    p.remainder.y += p.velocity.y * dt
-    displacement := math.round(p.remainder.y)
-    if displacement != 0 {
-        p.remainder.y -= displacement
-        step := sign(displacement)
-
-        for displacement != 0 {
-            if !player_attempt_move_y(p, step) {
-                break
-            }
-
-            displacement -= step
-        }
-    } else if p.velocity.y != 0 {
-        if player_collision_with_solid_at(p, Vector2{0, sign(p.velocity.y)}) != nil || player_collision_with_jumpthrough_below(p) != nil {
-            p.velocity.y = 0
-            p.remainder.y = 0
-        }
-    }
-}*/
-
 player_attempt_move_x :: proc(p: ^Player, offset: f32) -> bool {
     if player_collision_with_solid_at(p, Vector2{offset, 0}) != nil {
-        p.velocity.x = 0
-        p.remainder.x = 0
+        player_collide_x(p)
         return false
     }
 
@@ -483,14 +437,23 @@ player_attempt_move_y :: proc(p: ^Player, offset: f32) -> bool {
         if p.velocity.y < 0 {
             p.excess_velocity_y = p.velocity.y * CEILING_HANG_FACTOR
         }
-        p.velocity.y = 0
-        p.remainder.y = 0
+        player_collide_y(p)
         return false
     }
 
     return true
 }
 
+player_collide_x :: proc(p: ^Player) {
+    p.velocity.x = 0
+    p.remainder.x = 0
+}
+
+player_collide_y :: proc(p: ^Player) {
+    p.velocity.y = 0
+    p.remainder.y = 0
+}
+        
 player_move_x :: proc(p: ^Player, offset: f32) {
     player_move(p, Vector2{offset, 0})
 }
