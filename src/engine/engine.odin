@@ -72,8 +72,14 @@ run :: proc() {
         size = Vector2{32, 32},
         type = .Jump_Through
     }
+    
+    jt3 := Block {
+        position = Vector2{256+32, 224-32},
+        size = Vector2{32, 32},
+        type = .Jump_Through
+    }
 
-    append(&blocks, jt1, jt2)
+    append(&blocks, jt1, jt2, jt3)
 
     for &block in blocks {
         block_init(&block)

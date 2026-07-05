@@ -7,20 +7,25 @@ Subpixel_Movement :: struct {
     displacement_remainder: Vector2
 }
 
-subpixel_move :: proc(position: ^Vector2, velocity: ^Vector2, movement: ^Subpixel_Movement, dt: f32, ) {
-    
-    // vertical
-    movement.displacement_remainder.y += velocity.y * dt
-    displacement := math.round(movement.displacement_remainder.y)
+subpixel_move :: proc($T: typeid, object: ^T, speed: ^f32, remainder: ^f32, attempt_move: proc(object: ^T, offset: f32) -> bool, move: proc(object: ^T, offset: f32), collide: proc(object: ^T), dt: f32) {
+    remainder^ += speed^ * dt
+    displacement := math.round(remainder^)
     if displacement != 0 {
-        movement.displacement_remainder.y -= displacement
+        remainder^ -= displacement
         step := sign(displacement)
 
         for displacement != 0 {
-            // check collision -> break
+            if attempt_move(object, step) {
+                move(object, step)
+            } else {
+                break
+            }
 
-            position.y += step
-            
+            displacement -= step
+        }
+    } else if speed^ != 0 {
+        if !attempt_move(object, sign(speed^)) {
+            collide(object)
         }
     }
 }

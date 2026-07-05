@@ -57,6 +57,7 @@ Player :: struct {
 JUMP_BUFFER: f32 = 0.05
 COYOTE_TIME: f32 = 0.05
 DROP_BUFFER: f32 = 0.05
+jumpthroughs_to_ignore : [dynamic]^Block
 
 START_HORIZONTAL_VELOCITY: f32 : 2 * 60
 MAX_HORIZONTAL_SPEED : f32 : 8 * 60
@@ -111,9 +112,14 @@ player_update :: proc(p: ^Player, dt: f32) {
 player_update_collisions :: proc(p: ^Player) {
     p.ground = player_collision_with_solid_at(p, Vector2{0, 1})
     if p.ground == nil {
-        p.ground = player_collision_with_jumpthrough_below(p)
-        if p.drop_buffer > 0 {
-            p.ground = nil
+        jumpthroughs := player_collision_with_jumpthrough_below(p)
+        if len(jumpthroughs) > 0 {
+            p.ground = jumpthroughs[0]
+            fmt.println("here 1")
+            if p.drop_buffer > 0 {
+                p.ground = nil
+            fmt.println("here 2")
+            }
         }
     }
     
@@ -125,27 +131,45 @@ player_collision_with_solid_at :: proc(p: ^Player, offset: Vector2) -> ^Block {
     return intersecting_solid_at(p.collision_rectangle, offset)
 }
 
-player_collision_with_jumpthrough_below :: proc(p: ^Player) -> ^Block { 
-    rect := p.collision_rectangle 
-    rect.offset = add(rect.offset, Vector2{0,1}) 
-    
+player_collision_with_jumpthrough_below :: proc(p: ^Player) -> [dynamic]^Block { 
+
+    jumpthroughs : [dynamic]^Block
+
     for &block in blocks {
         if block.type != .Jump_Through {
             continue
         }
 
-        if !intersects(rect, block.collision_rectangle) {
+        if !intersects_at(p.collision_rectangle, block.collision_rectangle, Vector2{0,1}) {
             continue
         }
 
         if intersects(p.collision_rectangle, block.collision_rectangle) {
+            should_ignore, to_ignore_index := player_should_ignore(&block)
+            if should_ignore {
+                unordered_remove(&jumpthroughs_to_ignore, to_ignore_index)
+            }
             continue
         }
 
-        return &block
+        should_ignore, _ := player_should_ignore(&block)
+        if should_ignore {
+            continue
+        }
+
+        append(&jumpthroughs, &block)
     }
 
-    return nil 
+    return jumpthroughs 
+}
+
+player_should_ignore :: proc(jt: ^Block) -> (bool, int) {
+    for to_ignore, i in jumpthroughs_to_ignore {
+        if jt == to_ignore {
+            return true, i
+        }
+    }
+    return false, -1
 }
 
 player_update_physics :: proc(p: ^Player, dt: f32) {
@@ -386,31 +410,8 @@ player_update_vertical_velocity :: proc(p: ^Player, dt: f32) {
 }
 
 player_update_position :: proc(p: ^Player, dt: f32) {
-    player_update_coord(p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
-    player_update_coord(p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
-}
-
-player_update_coord :: proc(p: ^Player, speed: ^f32, remainder: ^f32, attempt_move: proc(p: ^Player, offset: f32) -> bool, move: proc(p: ^Player, offset: f32), collide: proc(p: ^Player), dt: f32) {
-    remainder^ += speed^ * dt
-    displacement := math.round(remainder^)
-    if displacement != 0 {
-        remainder^ -= displacement
-        step := sign(displacement)
-
-        for displacement != 0 {
-            if attempt_move(p, step) {
-                move(p, step)
-            } else {
-                break
-            }
-
-            displacement -= step
-        }
-    } else if speed^ != 0 {
-        if !attempt_move(p, sign(speed^)) {
-            collide(p)
-        }
-    }
+    subpixel_move(Player, p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
+    subpixel_move(Player, p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
 }
 
 player_attempt_move_x :: proc(p: ^Player, offset: f32) -> bool {
@@ -426,10 +427,14 @@ player_attempt_move_y :: proc(p: ^Player, offset: f32) -> bool {
     solid := player_collision_with_solid_at(p, Vector2{0, offset})
 
     if solid == nil && offset > 0 {
-        solid = player_collision_with_jumpthrough_below(p)
-        if solid != nil && p.drop_buffer > 0 {
-            solid = nil
-            p.drop_buffer = 0
+        jumpthroughs := player_collision_with_jumpthrough_below(p)
+        if len(jumpthroughs) > 0 {
+            solid = jumpthroughs[0]
+            if p.drop_buffer > 0 {
+                append(&jumpthroughs_to_ignore, ..jumpthroughs[:])
+                solid = nil
+                p.drop_buffer = 0
+            }
         }
     }
 

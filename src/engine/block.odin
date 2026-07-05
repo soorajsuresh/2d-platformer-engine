@@ -19,6 +19,7 @@ Block :: struct {
 
 Falling :: struct {
     velocity: Vector2,
+    remainder: Vector2,
     acceleration: Vector2,
     state: Falling_Block_State,
 }
@@ -59,7 +60,50 @@ falling_block_update_velocity :: proc(b: ^Block, dt: f32) {
 }
 
 falling_block_update_position :: proc(b: ^Block, dt: f32) {
-    b.position = add(b.position, scale(dt, b.falling.velocity))
+    subpixel_move(Block, b, &b.falling.velocity.y, &b.falling.remainder.y, falling_block_attempt_move_y, falling_block_move_y, falling_block_collide_y, dt)
+}
+
+falling_block_attempt_move_y :: proc(b: ^Block, offset: f32) -> bool {
+    solid := falling_block_collision_with_solid_at(b, Vector2{0, offset})
+
+    if solid != nil {
+        falling_block_collide_y(b)
+        return false
+    }
+
+    return true
+}
+
+falling_block_collision_with_solid_at :: proc(p: ^Block, offset: Vector2) -> ^Block {
+    /*solid := intersecting_solid_at(p.collision_rectangle, offset)
+    if solid == nil {
+        for &block in blocks {
+            if block.type != .Jump_Through {
+                continue
+            }
+
+            if !intersects(rect, block.collision_rectangle) {
+                continue
+            }
+
+            if intersects(p.collision_rectangle, block.collision_rectangle) {
+                continue
+            }
+
+            return &block
+        }
+    }*/
+    return nil
+}
+
+falling_block_collide_y :: proc(b: ^Block) {
+    b.falling.velocity.y = 0
+    b.falling.remainder.y = 0
+}
+        
+falling_block_move_y :: proc(b: ^Block, offset: f32) {
+    b.position = add(b.position, Vector2{0, offset})
+    b.collision_rectangle.offset = b.position
 }
 
 block_render :: proc(b: ^Block) {
