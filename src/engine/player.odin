@@ -28,13 +28,14 @@ Player_Action :: enum {
 }
 
 Player :: struct {
-    position: Vector2,
+    entity: Entity,
+    //position: Vector2,
     velocity: Vector2,
     remainder: Vector2, // TODO: better name?
     acceleration: Vector2,
     resistance: f32,
     deceleration: f32,
-    collision_rectangle: CollisionRectangle,
+    //collision_rectangle: CollisionRectangle,
     ground: ^Block,
     wall_right: ^Block,
     wall_left: ^Block,
@@ -78,11 +79,13 @@ WALL_JUMP_OUTWARD_VELOCITY: f32 : 2 * 60
 WALL_HOLD: f32 : 1
 
 player_init :: proc (p: ^Player, position: Vector2) {
-    p.position = position
+    p.entity = Entity{
+        position, 
+        CollisionRectangle{position, Vector2{32, 32}}
+    }
     p.velocity = Vector2{}
     p.remainder = Vector2{}
     p.acceleration = Vector2{}
-    p.collision_rectangle = CollisionRectangle{p.position, Vector2{32, 32}}
     p.ground = nil
     p.wall_right = nil
     p.wall_left = nil
@@ -115,10 +118,8 @@ player_update_collisions :: proc(p: ^Player) {
         jumpthroughs := player_collision_with_jumpthrough_below(p)
         if len(jumpthroughs) > 0 {
             p.ground = jumpthroughs[0]
-            fmt.println("here 1")
             if p.drop_buffer > 0 {
                 p.ground = nil
-            fmt.println("here 2")
             }
         }
     }
@@ -128,7 +129,7 @@ player_update_collisions :: proc(p: ^Player) {
 }
 
 player_collision_with_solid_at :: proc(p: ^Player, offset: Vector2) -> ^Block {
-    return intersecting_solid_at(p.collision_rectangle, offset)
+    return entity_intersecting_solid_at(p.entity, offset)
 }
 
 player_collision_with_jumpthrough_below :: proc(p: ^Player) -> [dynamic]^Block { 
@@ -140,11 +141,11 @@ player_collision_with_jumpthrough_below :: proc(p: ^Player) -> [dynamic]^Block {
             continue
         }
 
-        if !intersects_at(p.collision_rectangle, block.collision_rectangle, Vector2{0,1}) {
+        if !entities_intersect_at(p.entity, block.entity, Vector2{0,1}) {
             continue
         }
 
-        if intersects(p.collision_rectangle, block.collision_rectangle) {
+        if entities_intersect(p.entity, block.entity) {
             should_ignore, to_ignore_index := player_should_ignore(&block)
             if should_ignore {
                 unordered_remove(&jumpthroughs_to_ignore, to_ignore_index)
@@ -468,18 +469,37 @@ player_move_y :: proc(p: ^Player, offset: f32) {
 }
 
 player_move :: proc (p: ^Player, offset: Vector2) {
-    p.position = add(p.position, offset)
-    p.collision_rectangle.offset = p.position
+    p.entity.position = add(p.entity.position, offset)
+    p.entity.collision_rectangle.offset = p.entity.position
 }
 
 player_render :: proc(p: ^Player) {
-    w, h := p.collision_rectangle.size.x, p.collision_rectangle.size.y
-    rl.DrawRectangleV(rl.Vector2{p.position.x, p.position.y}, rl.Vector2{w, h}, rl.MAGENTA)
+    rl.DrawRectangleV(
+        rl.Vector2{
+            p.entity.position.x, 
+            p.entity.position.y
+        }, 
+        rl.Vector2{
+            p.entity.collision_rectangle.size.x, 
+            p.entity.collision_rectangle.size.y
+        }, 
+        rl.MAGENTA
+    )
 
-    facing_direction_line_x := p.position.x + 4
+    facing_direction_line_x := p.entity.position.x + 4
     if p.horizontal_facing_direction > 0 {
-        facing_direction_line_x = p.position.x + 28
+        facing_direction_line_x = p.entity.position.x + 28
     }
 
-    rl.DrawLineV(rl.Vector2{facing_direction_line_x, p.position.y}, rl.Vector2{facing_direction_line_x, p.position.y + 31}, rl.YELLOW)
+    rl.DrawLineV(
+        rl.Vector2{
+            facing_direction_line_x, 
+            p.entity.position.y
+        }, 
+        rl.Vector2{
+            facing_direction_line_x, 
+            p.entity.position.y + 31
+        }, 
+        rl.YELLOW
+    )
 }

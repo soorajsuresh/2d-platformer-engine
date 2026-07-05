@@ -22,17 +22,23 @@ run :: proc() {
     player_init(&player, position = Vector2{512-128, 10})
 
     block1 := Block{
-        position = Vector2{512-128,128},
+        entity = Entity{
+            position = Vector2{512-128,128},
+        },
         size = Vector2{32,32}
     } 
 
     block2 := Block{
-        position = Vector2{512-96,128},
+        entity = Entity{
+            position = Vector2{512-96,128},
+        },
         size = Vector2{32,32}
     }
 
     block3 := Block{
-        position = Vector2{32,160},
+        entity = Entity{
+            position = Vector2{32,160},
+        },
         size = Vector2{64,32}
     }
 
@@ -40,7 +46,9 @@ run :: proc() {
     
     for x := 0; x < 512; x += 32 {
         block := Block{
-            position = Vector2{f32(x), 256},
+            entity = Entity{
+                position = Vector2{f32(x), 256},
+            },
             size = Vector2{32, 32},
         }
 
@@ -49,12 +57,16 @@ run :: proc() {
     
     for y := 0; y < 288; y += 32 {
         left_block := Block{
-            position = Vector2{0, f32(y)},
+            entity = Entity{
+                position = Vector2{0, f32(y)},
+            },
             size = Vector2{32, 32},
         }
 
         right_block := Block{
-            position = Vector2{512 - 32, f32(y)},
+            entity = Entity{
+                position = Vector2{512 - 32, f32(y)},
+            },
             size = Vector2{32, 32},
         }
 
@@ -62,31 +74,55 @@ run :: proc() {
     }
 
     jt1 := Block {
-        position = Vector2{256, 224},
+        entity = Entity{
+            position = Vector2{256, 224},
+        },
         size = Vector2{32, 32},
         type = .Jump_Through
     }
 
     jt2 := Block {
-        position = Vector2{256, 224-32},
+        entity = Entity{
+            position = Vector2{256, 224-32},
+        },
         size = Vector2{32, 32},
         type = .Jump_Through
     }
     
     jt3 := Block {
-        position = Vector2{256+32, 224-32},
+        entity = Entity{
+            position = Vector2{256+32, 224-32},
+        },
         size = Vector2{32, 32},
         type = .Jump_Through
     }
 
-    append(&blocks, jt1, jt2, jt3)
+    jt4 := Block {
+        entity = Entity{
+            position = Vector2{256+64, 224-32},
+        },
+        size = Vector2{32, 32},
+        type = .Jump_Through
+    }
+
+    jt5 := Block {
+        entity = Entity{
+            position = Vector2{256+96, 224-32},
+        },
+        size = Vector2{32, 32},
+        type = .Jump_Through
+    }
+
+    append(&blocks, jt1, jt2, jt3, jt4, jt5)
 
     for &block in blocks {
         block_init(&block)
     }
 
     falling1 := Block {
-        position = Vector2{512-128-32,128},
+        entity = Entity{
+            position = Vector2{512-128-32,128},
+        },
         size = Vector2{32,32}
     }
 
@@ -157,7 +193,7 @@ render :: proc() {
                 block_render(&block)
             }
         }
-        collision_rectangle_render(&block.collision_rectangle)
+        collision_rectangle_render(&block.entity.collision_rectangle)
     }
 
     render_gui()

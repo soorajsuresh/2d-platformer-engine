@@ -9,9 +9,10 @@ Block_Type :: enum {
 }
 
 Block :: struct {
-    position: Vector2,
+    entity: Entity,
+    //position: Vector2,
+    //collision_rectangle: CollisionRectangle,
     size: Vector2,
-    collision_rectangle: CollisionRectangle,
     type: Block_Type,
     falling: Falling, // TODO: I dont like that every block has these fields
     has_falling: bool
@@ -22,6 +23,7 @@ Falling :: struct {
     remainder: Vector2,
     acceleration: Vector2,
     state: Falling_Block_State,
+    riders: [dynamic]^Entity,
 }
 
 Falling_Block_State :: enum {
@@ -31,7 +33,7 @@ Falling_Block_State :: enum {
 }
 
 block_init :: proc(b: ^Block) {
-    b.collision_rectangle = CollisionRectangle{b.position, b.size}
+    b.entity.collision_rectangle = CollisionRectangle{b.entity.position, b.size}
     b.has_falling = false
 }
 
@@ -45,8 +47,16 @@ falling_block_init :: proc(b: ^Block) {
 }
 
 falling_block_update :: proc(b: ^Block, dt: f32) {
-    if intersects_at(b.collision_rectangle, player.collision_rectangle, Vector2{0, -1}) {
+    if entities_intersect_at(b.entity, player.entity, Vector2{0, -1}) {
         b.falling.state = .Falling
+        // TODO: grab all entities
+        append(&b.falling.riders, &player.entity)
+        // TODO: the following is not great
+        for &block in blocks {
+            if block.has_falling && &block != b{
+                append(&b.falling.riders, &block.entity)
+            }
+        }
     }
 
     if b.falling.state == .Falling {
@@ -74,25 +84,28 @@ falling_block_attempt_move_y :: proc(b: ^Block, offset: f32) -> bool {
     return true
 }
 
-falling_block_collision_with_solid_at :: proc(p: ^Block, offset: Vector2) -> ^Block {
-    /*solid := intersecting_solid_at(p.collision_rectangle, offset)
-    if solid == nil {
-        for &block in blocks {
-            if block.type != .Jump_Through {
-                continue
-            }
+falling_block_collision_with_solid_at :: proc(b: ^Block, offset: Vector2) -> ^Block {
 
-            if !intersects(rect, block.collision_rectangle) {
-                continue
-            }
+    solid := entity_intersecting_solid_at(b.entity, offset, b)
+    if solid != nil {
+        return solid
+    }
 
-            if intersects(p.collision_rectangle, block.collision_rectangle) {
-                continue
-            }
-
-            return &block
+    for &block in blocks {
+        if block.type != .Jump_Through {
+            continue
         }
-    }*/
+
+        if !entities_intersect_at(b.entity, block.entity, Vector2{0,1}) {
+            continue
+        }
+
+        if entities_intersect(b.entity, block.entity) {
+            continue
+        }
+
+        return &block
+    }
     return nil
 }
 
@@ -102,21 +115,21 @@ falling_block_collide_y :: proc(b: ^Block) {
 }
         
 falling_block_move_y :: proc(b: ^Block, offset: f32) {
-    b.position = add(b.position, Vector2{0, offset})
-    b.collision_rectangle.offset = b.position
+    b.entity.position = add(b.entity.position, Vector2{0, offset})
+    b.entity.collision_rectangle.offset = b.entity.position
 }
 
 block_render :: proc(b: ^Block) {
-    w, h := b.collision_rectangle.size.x, b.collision_rectangle.size.y
-    rl.DrawRectangleV(rl.Vector2{b.position.x, b.position.y}, rl.Vector2{w, h}, rl.BLUE)
+    w, h := b.entity.collision_rectangle.size.x, b.entity.collision_rectangle.size.y
+    rl.DrawRectangleV(rl.Vector2{b.entity.position.x, b.entity.position.y}, rl.Vector2{w, h}, rl.BLUE)
 }
 
 jumpthrough_block_render :: proc(b: ^Block) {
-    w, h := b.collision_rectangle.size.x, b.collision_rectangle.size.y
-    rl.DrawRectangleV(rl.Vector2{b.position.x, b.position.y}, rl.Vector2{w, h}, rl.Fade(rl.BLUE, 0.25))
+    w, h := b.entity.collision_rectangle.size.x, b.entity.collision_rectangle.size.y
+    rl.DrawRectangleV(rl.Vector2{b.entity.position.x, b.entity.position.y}, rl.Vector2{w, h}, rl.Fade(rl.BLUE, 0.25))
 }
 
 falling_block_render :: proc(b: ^Block) {
-    w, h := b.collision_rectangle.size.x, b.collision_rectangle.size.y
-    rl.DrawRectangleV(rl.Vector2{b.position.x, b.position.y}, rl.Vector2{w, h}, rl.BROWN)
+    w, h := b.entity.collision_rectangle.size.x, b.entity.collision_rectangle.size.y
+    rl.DrawRectangleV(rl.Vector2{b.entity.position.x, b.entity.position.y}, rl.Vector2{w, h}, rl.BROWN)
 }

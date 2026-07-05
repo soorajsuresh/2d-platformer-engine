@@ -3,7 +3,6 @@ package engine
 import "core:math"
 
 Subpixel_Movement :: struct {
-    velocity: Vector2,
     displacement_remainder: Vector2
 }
 
