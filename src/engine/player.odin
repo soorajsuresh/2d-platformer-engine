@@ -28,14 +28,14 @@ Player_Action :: enum {
 }
 
 Player :: struct {
-    entity: Entity,
-    //position: Vector2,
+    actor: Actor,
+    collider: Collider,
+    position: Vector2,
     velocity: Vector2,
     remainder: Vector2, // TODO: better name?
     acceleration: Vector2,
     resistance: f32,
     deceleration: f32,
-    //collision_rectangle: CollisionRectangle,
     ground: ^Block,
     wall_right: ^Block,
     wall_left: ^Block,
@@ -79,10 +79,10 @@ WALL_JUMP_OUTWARD_VELOCITY: f32 : 2 * 60
 WALL_HOLD: f32 : 1
 
 player_init :: proc (p: ^Player, position: Vector2) {
-    p.entity = Entity{
-        position, 
-        CollisionRectangle{position, Vector2{32, 32}}
+    p.collider = Collider{
+        collision_rectangle = CollisionRectangle{position, Vector2{32, 32}},
     }
+    p.position = position
     p.velocity = Vector2{}
     p.remainder = Vector2{}
     p.acceleration = Vector2{}
@@ -104,18 +104,18 @@ player_init :: proc (p: ^Player, position: Vector2) {
     p.can_move_horizontally = true
 }
 
-player_update :: proc(p: ^Player, dt: f32) {
-    player_update_collisions(p)
-    player_update_physics(p, dt)
+player_update :: proc(scene: ^Scene, p: ^Player, dt: f32) {
+    player_update_collisions(scene, p)
+    player_update_physics(scene, p, dt)
     player_update_action(p)
     player_update_velocity(p, dt)
-    player_update_position(p, dt)
+    player_update_position(scene, p, dt)
 }
 
-player_update_collisions :: proc(p: ^Player) {
-    p.ground = player_collision_with_solid_at(p, Vector2{0, 1})
+player_update_collisions :: proc(scene: ^Scene, p: ^Player) {
+    p.ground = player_collision_with_solid_at(scene, p, Vector2{0, 1})
     if p.ground == nil {
-        jumpthroughs := player_collision_with_jumpthrough_below(p)
+        jumpthroughs := player_collision_with_jumpthrough_below(scene, p)
         if len(jumpthroughs) > 0 {
             p.ground = jumpthroughs[0]
             if p.drop_buffer > 0 {
@@ -124,28 +124,28 @@ player_update_collisions :: proc(p: ^Player) {
         }
     }
     
-    p.wall_right = player_collision_with_solid_at(p, Vector2{1, 0})
-    p.wall_left = player_collision_with_solid_at(p, Vector2{-1, 0})
+    p.wall_right = player_collision_with_solid_at(scene, p, Vector2{1, 0})
+    p.wall_left = player_collision_with_solid_at(scene, p, Vector2{-1, 0})
 }
 
-player_collision_with_solid_at :: proc(p: ^Player, offset: Vector2) -> ^Block {
-    return entity_intersecting_solid_at(p.entity, offset)
+player_collision_with_solid_at :: proc(scene: ^Scene, p: ^Player, offset: Vector2) -> ^Block {
+    return collider_intersecting_solid_at(scene, p.collider, offset)
 }
 
-player_collision_with_jumpthrough_below :: proc(p: ^Player) -> [dynamic]^Block { 
+player_collision_with_jumpthrough_below :: proc(scene: ^Scene, p: ^Player) -> [dynamic]^Block { 
 
     jumpthroughs : [dynamic]^Block
 
-    for &block in blocks {
+    for actor, &block in scene.blocks {
         if block.type != .Jump_Through {
             continue
         }
 
-        if !entities_intersect_at(p.entity, block.entity, Vector2{0,1}) {
+        if !colliders_intersect_at(p.collider, block.collider, Vector2{0,1}) {
             continue
         }
 
-        if entities_intersect(p.entity, block.entity) {
+        if colliders_intersect(p.collider, block.collider) {
             should_ignore, to_ignore_index := player_should_ignore(&block)
             if should_ignore {
                 unordered_remove(&jumpthroughs_to_ignore, to_ignore_index)
@@ -173,7 +173,7 @@ player_should_ignore :: proc(jt: ^Block) -> (bool, int) {
     return false, -1
 }
 
-player_update_physics :: proc(p: ^Player, dt: f32) {
+player_update_physics :: proc(scene: ^Scene, p: ^Player, dt: f32) {
     
     if p.ground != nil && p.velocity.y >= 0 {
         if p.physics_state != .On_Ground {
@@ -185,7 +185,7 @@ player_update_physics :: proc(p: ^Player, dt: f32) {
     } else {
         if p.physics_state != .In_Air {
             p.physics_state = .In_Air
-            player_reset_air_physics(p)
+            player_reset_air_physics(scene, p)
         }
     }
 
@@ -208,7 +208,7 @@ player_reset_ground_physics :: proc(p: ^Player) {
     p.deceleration = GROUND_DECELERATION
 }
 
-player_reset_air_physics :: proc(p: ^Player) {
+player_reset_air_physics :: proc(scene: ^Scene, p: ^Player) {
     p.acceleration.x = AIR_ACCELERATION
     p.acceleration.y = GRAVITY
     p.resistance = AIR_RESISTANCE
@@ -351,9 +351,9 @@ player_update_horizontal_velocity :: proc(p: ^Player, dt: f32) {
             }
         } else {
             if vel > 0 {
-                vel = max(0, vel - player.resistance * dt)
+                vel = max(0, vel - p.resistance * dt)
             } else if vel < 0 {
-                vel = min(vel + player.resistance * dt, 0)
+                vel = min(vel + p.resistance * dt, 0)
             }
         }
         vel = clamp(vel, -MAX_HORIZONTAL_SPEED, MAX_HORIZONTAL_SPEED)
@@ -410,13 +410,13 @@ player_update_vertical_velocity :: proc(p: ^Player, dt: f32) {
     }
 }
 
-player_update_position :: proc(p: ^Player, dt: f32) {
-    subpixel_move(Player, p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
-    subpixel_move(Player, p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
+player_update_position :: proc(scene: ^Scene, p: ^Player, dt: f32) {
+    subpixel_move(scene, Player, p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
+    subpixel_move(scene, Player, p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
 }
 
-player_attempt_move_x :: proc(p: ^Player, offset: f32) -> bool {
-    if player_collision_with_solid_at(p, Vector2{offset, 0}) != nil {
+player_attempt_move_x :: proc(scene: ^Scene, p: ^Player, offset: f32) -> bool {
+    if player_collision_with_solid_at(scene, p, Vector2{offset, 0}) != nil {
         player_collide_x(p)
         return false
     }
@@ -424,11 +424,11 @@ player_attempt_move_x :: proc(p: ^Player, offset: f32) -> bool {
     return true
 }
 
-player_attempt_move_y :: proc(p: ^Player, offset: f32) -> bool {
-    solid := player_collision_with_solid_at(p, Vector2{0, offset})
+player_attempt_move_y :: proc(scene: ^Scene, p: ^Player, offset: f32) -> bool {
+    solid := player_collision_with_solid_at(scene, p, Vector2{0, offset})
 
     if solid == nil && offset > 0 {
-        jumpthroughs := player_collision_with_jumpthrough_below(p)
+        jumpthroughs := player_collision_with_jumpthrough_below(scene, p)
         if len(jumpthroughs) > 0 {
             solid = jumpthroughs[0]
             if p.drop_buffer > 0 {
@@ -469,36 +469,36 @@ player_move_y :: proc(p: ^Player, offset: f32) {
 }
 
 player_move :: proc (p: ^Player, offset: Vector2) {
-    p.entity.position = add(p.entity.position, offset)
-    p.entity.collision_rectangle.offset = p.entity.position
+    p.position = add(p.position, offset)
+    p.collider.collision_rectangle.offset = p.position
 }
 
 player_render :: proc(p: ^Player) {
     rl.DrawRectangleV(
         rl.Vector2{
-            p.entity.position.x, 
-            p.entity.position.y
+            p.position.x, 
+            p.position.y
         }, 
         rl.Vector2{
-            p.entity.collision_rectangle.size.x, 
-            p.entity.collision_rectangle.size.y
+            p.collider.collision_rectangle.size.x, 
+            p.collider.collision_rectangle.size.y
         }, 
         rl.MAGENTA
     )
 
-    facing_direction_line_x := p.entity.position.x + 4
+    facing_direction_line_x := p.position.x + 4
     if p.horizontal_facing_direction > 0 {
-        facing_direction_line_x = p.entity.position.x + 28
+        facing_direction_line_x = p.position.x + 28
     }
 
     rl.DrawLineV(
         rl.Vector2{
             facing_direction_line_x, 
-            p.entity.position.y
+            p.position.y
         }, 
         rl.Vector2{
             facing_direction_line_x, 
-            p.entity.position.y + 31
+            p.position.y + 31
         }, 
         rl.YELLOW
     )

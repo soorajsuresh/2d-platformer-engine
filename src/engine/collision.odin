@@ -6,7 +6,7 @@ CollisionRectangle :: struct {
     size: Vector2
 }
 
-entities_intersect :: proc(a, b: Entity) -> bool {
+colliders_intersect :: proc(a, b: Collider) -> bool {
     return rectangles_intersect(a.collision_rectangle, b.collision_rectangle)
 }
 
@@ -17,7 +17,7 @@ rectangles_intersect :: proc(a, b: CollisionRectangle) -> bool {
            a.offset.y + a.size.y > b.offset.y
 }
 
-entities_intersect_at :: proc(a, b: Entity, offset: Vector2) -> bool {
+colliders_intersect_at :: proc(a, b: Collider, offset: Vector2) -> bool {
     return rectangles_intersect_at(a.collision_rectangle, b.collision_rectangle, offset)
 }
 
@@ -27,43 +27,43 @@ rectangles_intersect_at :: proc(a, b: CollisionRectangle, offset: Vector2) -> bo
     return rectangles_intersect(r, b)
 }
 
-entity_intersecting_solid :: proc(e: Entity, ignore: ^Block) -> ^Block {
-    return intersecting_solid(e.collision_rectangle, ignore)
+collider_intersecting_solid :: proc(scene: ^Scene, e: Collider, ignore: ^Block) -> ^Block {
+    return intersecting_solid(scene, e.collision_rectangle, ignore)
 }
 
-intersecting_solid :: proc(a: CollisionRectangle, ignore: ^Block) -> ^Block {
-    for &block in blocks {
-        if rectangles_intersect(a, block.entity.collision_rectangle) && block.type == .Solid && &block != ignore {
+intersecting_solid :: proc(scene: ^Scene, a: CollisionRectangle, ignore: ^Block) -> ^Block {
+    for actor, &block in scene.blocks {
+        if rectangles_intersect(a, block.collider.collision_rectangle) && block.type == .Solid && &block != ignore {
             return &block
         }
     }
     return nil
 }
 
-entity_intersecting_solid_at :: proc(e: Entity, offset: Vector2, ignore: ^Block = nil) -> ^Block {
-    return intersecting_solid_at(e.collision_rectangle, offset, ignore)
+collider_intersecting_solid_at :: proc(scene: ^Scene, e: Collider, offset: Vector2, ignore: ^Block = nil) -> ^Block {
+    return intersecting_solid_at(scene, e.collision_rectangle, offset, ignore)
 }
 
-intersecting_solid_at :: proc(a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> ^Block {
+intersecting_solid_at :: proc(scene: ^Scene, a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> ^Block {
     rect := a
     rect.offset = add(rect.offset, offset)
-    return intersecting_solid(rect, ignore)
+    return intersecting_solid(scene, rect, ignore)
 }
 
-entity_intersecting_solids_at :: proc(e: Entity, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {
-    return intersecting_solids_at(e.collision_rectangle, offset, ignore)
+collider_intersecting_solids_at :: proc(scene: ^Scene, e: Collider, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {
+    return intersecting_solids_at(scene, e.collision_rectangle, offset, ignore)
 }
 
-intersecting_solids_at :: proc(a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {
+intersecting_solids_at :: proc(scene: ^Scene, a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {
     rect := a
     rect.offset = add(rect.offset, offset)
-    return intersecting_solids(rect, ignore)
+    return intersecting_solids(scene, rect, ignore)
 }
 
-intersecting_solids :: proc(a: CollisionRectangle, ignore: ^Block) -> [dynamic]^Block {
+intersecting_solids :: proc(scene: ^Scene, a: CollisionRectangle, ignore: ^Block) -> [dynamic]^Block {
     solids : [dynamic]^Block
-    for &block in blocks {
-        if rectangles_intersect(a, block.entity.collision_rectangle) && block.type == .Solid && &block != ignore {
+    for actor, &block in scene.blocks {
+        if rectangles_intersect(a, block.collider.collision_rectangle) && block.type == .Solid && &block != ignore {
             append(&solids, &block)
         }
     }

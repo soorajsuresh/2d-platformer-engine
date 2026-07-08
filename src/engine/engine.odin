@@ -4,186 +4,194 @@ import "core:fmt"
 import rl "vendor:raylib"
 
 TARGET_FPS : i32 = 60
+GRAVITY : f32 = 0.6 * 3600
+DEBUG : bool = true
 
-GRAVITY : f32 : 0.6 * 3600
+Engine :: struct {
+    step_through : bool,
+    should_update : bool,
+    time_scale : f32,
+}
 
-player : Player
-blocks : [dynamic]Block
-time_scale : f32 = 1
+Actor :: distinct u32
 
-step_through : bool = false // true
-should_update : bool = false
+Scene :: struct {
+    actors : [dynamic]Actor,
+    next_actor: Actor,
 
-run :: proc() {
+    player : Player,
+    blocks : map[Actor]Block,
+}
 
-    rl.InitWindow(512, 288, "2D Platformer Engine")
-    //rl.SetTargetFPS(TARGET_FPS)
-    
+create_actor :: proc(scene: ^Scene) -> Actor {
+    actor := scene.next_actor
+    scene.next_actor += 1
+    append(&scene.actors, actor)
+    return actor
+}
+
+player_create :: proc(scene: ^Scene) -> Actor {
+    actor := create_actor(scene)
+    player : Player
+    player.actor = actor
     player_init(&player, position = Vector2{512-128, 10})
+    player_add(scene, actor, player)
+    return actor
+}
 
-    block1 := Block{
-        entity = Entity{
-            position = Vector2{512-128,128},
-        },
-        size = Vector2{32,32}
-    } 
+player_add :: proc(scene: ^Scene, actor: Actor, player: Player) {
+    scene.player = player
+}
 
-    block2 := Block{
-        entity = Entity{
-            position = Vector2{512-96,128},
-        },
-        size = Vector2{32,32}
+player_get :: proc(scene: ^Scene) -> ^Player {
+    return &scene.player
+}
+
+block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Block_Type = .Solid, falling: bool = false) -> Actor {
+    actor := create_actor(scene)
+    block := Block {
+        actor = actor,
+        position = position,
+        size = size,
+        type = type
     }
-
-    block3 := Block{
-        entity = Entity{
-            position = Vector2{32,160},
-        },
-        size = Vector2{64,32}
+    if !falling {
+        block_init(&block)
+    } else {
+        falling_block_init(&block)
     }
+    block_add(scene, actor, block)
+    return actor
+}
 
-    append(&blocks, block1, block2, block3)
+jump_through_block_create :: proc(scene: ^Scene, position, size: Vector2) -> Actor {
+    return block_create(scene, position, size, .Jump_Through)
+}
+
+falling_block_create :: proc(scene: ^Scene, position, size: Vector2) -> Actor {
+    return block_create(scene, position, size, .Solid, falling = true)
+}
+
+block_add :: proc(scene: ^Scene, actor: Actor, block: Block) {
+    scene.blocks[actor] = block
+}
+
+engine_init :: proc(engine: ^Engine) {
+    engine.step_through = false
+    engine.should_update = false
+    engine.time_scale = 1
+}
+
+scene_init :: proc(scene: ^Scene) {
+    
+    player_create(scene)
+
+    block_create(scene, Vector2{512-128,128}, Vector2{32,32})
+
+    block_create(scene, Vector2{512-128,128}, Vector2{32,32})
+    block_create(scene, Vector2{512-96,128}, Vector2{32,32})
+    block_create(scene, Vector2{32,160}, Vector2{64,32})
     
     for x := 0; x < 512; x += 32 {
-        block := Block{
-            entity = Entity{
-                position = Vector2{f32(x), 256},
-            },
-            size = Vector2{32, 32},
-        }
-
-        append(&blocks, block)
+        block_create(scene, Vector2{f32(x), 256}, Vector2{32, 32})
     }
     
     for y := 0; y < 288; y += 32 {
-        left_block := Block{
-            entity = Entity{
-                position = Vector2{0, f32(y)},
-            },
-            size = Vector2{32, 32},
-        }
-
-        right_block := Block{
-            entity = Entity{
-                position = Vector2{512 - 32, f32(y)},
-            },
-            size = Vector2{32, 32},
-        }
-
-        append(&blocks, left_block, right_block)
+        block_create(scene, Vector2{0, f32(y)}, size = Vector2{32, 32})
+        block_create(scene, Vector2{512 - 32, f32(y)}, size = Vector2{32, 32})
     }
 
-    jt1 := Block {
-        entity = Entity{
-            position = Vector2{256, 224},
-        },
-        size = Vector2{32, 32},
-        type = .Jump_Through
-    }
+    jump_through_block_create(scene, Vector2{256, 224}, size = Vector2{32, 32})
+    jump_through_block_create(scene, Vector2{256, 224-32},size = Vector2{32, 32})
+    jump_through_block_create(scene, Vector2{256+32, 224-32},size = Vector2{32, 32})
+    jump_through_block_create(scene, Vector2{256+64, 224-32},size = Vector2{32, 32})
+    jump_through_block_create(scene, Vector2{256+96, 224-32},size = Vector2{32, 32})
 
-    jt2 := Block {
-        entity = Entity{
-            position = Vector2{256, 224-32},
-        },
-        size = Vector2{32, 32},
-        type = .Jump_Through
-    }
-    
-    jt3 := Block {
-        entity = Entity{
-            position = Vector2{256+32, 224-32},
-        },
-        size = Vector2{32, 32},
-        type = .Jump_Through
-    }
+    falling_block_create(scene, Vector2{512-128-32,128}, Vector2{32, 32})
+}
 
-    jt4 := Block {
-        entity = Entity{
-            position = Vector2{256+64, 224-32},
-        },
-        size = Vector2{32, 32},
-        type = .Jump_Through
-    }
 
-    jt5 := Block {
-        entity = Entity{
-            position = Vector2{256+96, 224-32},
-        },
-        size = Vector2{32, 32},
-        type = .Jump_Through
-    }
 
-    append(&blocks, jt1, jt2, jt3, jt4, jt5)
+run :: proc() {
+    engine : Engine
+    engine_init(&engine)
 
-    for &block in blocks {
-        block_init(&block)
-    }
+    scene : Scene
+    scene_init(&scene)
 
-    falling1 := Block {
-        entity = Entity{
-            position = Vector2{512-128-32,128},
-        },
-        size = Vector2{32,32}
-    }
-
-    falling_block_init(&falling1)
-
-    append(&blocks, falling1)
+    rl.InitWindow(512, 288, "2D Platformer Engine")
+    rl.SetTargetFPS(TARGET_FPS)
 
     for !rl.WindowShouldClose() {
-        update()
-        render()
+        update(&engine, &scene)
+        render(&scene)
     }
 
     rl.CloseWindow()
 }
 
-update :: proc() {
-    time_scale = 0.25 if input.ctrl else 1
+update :: proc(engine: ^Engine, scene: ^Scene) {
+    engine.time_scale = 0.25 if input.ctrl else 1
 
-    dt : f32 = rl.GetFrameTime() * time_scale//* 60
+    dt : f32 = rl.GetFrameTime() * engine.time_scale
     update_input_state()
 
     if input.restart_pressed {
-        restart()
+        scene_restart(scene)
     }
 
-    if step_through {
+    if engine.step_through {
         if input.ctrl_pressed {
-            should_update = true
+            engine.should_update = true
         }
 
-        if should_update {
-            for &block in blocks {
-                if block.has_falling {
-                    falling_block_update(&block, dt)
-                }
-            }
-            player_update(&player, dt)
-            should_update = false
+        if engine.should_update {
+
+            scene_update(scene, dt)
+            
+            engine.should_update = false
         }
     } else {
-        for &block in blocks {
-            if block.has_falling {
-                falling_block_update(&block, dt)
-            }
-        }
-        player_update(&player, dt)
+        scene_update(scene, dt)
     }
 }
 
-restart :: proc() {
-    player_init(&player, position = Vector2{512-128, 10})
+scene_update :: proc(scene: ^Scene, dt: f32) {
+    for actor, &block in scene.blocks {
+        if block.has_falling {
+            falling_block_update(scene, &block, dt)
+        }
+    }
+    player_update(scene, &scene.player, dt)
 }
 
-render :: proc() {
+scene_restart :: proc(scene: ^Scene) {
+    scene_end(scene)
+    scene_init(scene)
+}
+
+scene_end :: proc(scene: ^Scene) {
+    clear(&scene.actors)
+    clear(&scene.blocks)
+}
+
+render :: proc(scene: ^Scene) {
     rl.BeginDrawing()
     rl.ClearBackground(rl.BLACK)
 
-    player_render(&player)
-    //collision_rectangle_render(&player.collision_rectangle)
+    scene_render(scene)
+    
+    if DEBUG {
+        debug_render(scene)
+    }
 
-    for &block in blocks {
+    rl.EndDrawing()
+}
+
+scene_render :: proc(scene: ^Scene) {
+    player_render(&scene.player)
+
+    for actor, &block in scene.blocks {
         if block.type == .Jump_Through {
             jumpthrough_block_render(&block)
         } else {
@@ -193,35 +201,36 @@ render :: proc() {
                 block_render(&block)
             }
         }
-        collision_rectangle_render(&block.entity.collision_rectangle)
     }
-
-    render_gui()
-
-    rl.EndDrawing()
 }
 
-render_gui :: proc() {
-    fps := rl.GetFPS()
+debug_render :: proc(scene : ^Scene) {
+    
+    player := &scene.player
+
+    collision_rectangle_render(&player.collider.collision_rectangle)
+    for actor, &block in scene.blocks {
+        collision_rectangle_render(&block.collider.collision_rectangle)
+    }
+    
     text := fmt.ctprint("\n",
-                        "FPS ", fps, "\n",
+                        "FPS ", rl.GetFPS(), "\n",
                         "slowmo ", input.ctrl, "\n", 
                         "physics_state ", player.physics_state, "\n",
                         "action ", player.action, "\n",
-                        //"velocity.x: ", player.velocity.x,
-                        //"x: ", player.position.x,
-                        //"ground: ", player.ground, "\n",
-                        //"wall_right: ", player.wall_right, "\n",
-                        //"wall_left: ", player.wall_left, "\n",
+                        "ground: ", player.ground, "\n",
+                        "wall_right: ", player.wall_right, "\n",
+                        "wall_left: ", player.wall_left, "\n",
                         "jump buffer ", player.jump_buffer, "\n",
                         "coyote time ", player.coyote_time, "\n",
                         "drop buffer ", player.drop_buffer, "\n",
                         "wall hold ", player.wall_hold, "\n",
                         "air jumps ", player.air_jumps_remaining, " / ", player.air_jumps, "\n",
-                        "vel y ", player.velocity.y, "\n",
+                        "velocity.x: ", player.velocity.x, "\n",
+                        "velocity.y ", player.velocity.y, "\n",
                         )
     
-    draw_text_outlined(text, 8, -10, 20, rl.WHITE, rl.BLACK, 2)
+    draw_text_outlined(text, 8, -5, 10, rl.WHITE, rl.BLACK, 1)
 }
 
 draw_text_outlined :: proc(text: cstring, x, y: i32, font_size: i32, text_color: rl.Color, outline_color: rl.Color, outline_size: i32 = 1) {
