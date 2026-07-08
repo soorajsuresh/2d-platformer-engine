@@ -86,6 +86,8 @@ scene_init :: proc(scene: ^Scene) {
     
     player_create(scene)
 
+    scene.blocks = make(map[Actor]Block)
+
     block_create(scene, Vector2{512-128,128}, Vector2{32,32})
 
     block_create(scene, Vector2{512-128,128}, Vector2{32,32})
@@ -110,8 +112,6 @@ scene_init :: proc(scene: ^Scene) {
     falling_block_create(scene, Vector2{512-128-32,128}, Vector2{32, 32})
 }
 
-
-
 run :: proc() {
     engine : Engine
     engine_init(&engine)
@@ -126,6 +126,8 @@ run :: proc() {
         update(&engine, &scene)
         render(&scene)
     }
+
+    scene_end(&scene)
 
     rl.CloseWindow()
 }
@@ -166,13 +168,15 @@ scene_update :: proc(scene: ^Scene, dt: f32) {
 }
 
 scene_restart :: proc(scene: ^Scene) {
-    scene_end(scene)
+    clear(&scene.actors)
+    scene.next_actor = 0
+    clear(&scene.blocks)
     scene_init(scene)
 }
 
 scene_end :: proc(scene: ^Scene) {
-    clear(&scene.actors)
-    clear(&scene.blocks)
+    delete(scene.actors)
+    delete(scene.blocks)
 }
 
 render :: proc(scene: ^Scene) {
@@ -193,12 +197,12 @@ scene_render :: proc(scene: ^Scene) {
 
     for actor, &block in scene.blocks {
         if block.type == .Jump_Through {
-            jumpthrough_block_render(&block)
+            jump_through_block_render(&block)
         } else {
-            if block.has_falling {
-                falling_block_render(&block)
-            } else {
+            if !block.has_falling {
                 block_render(&block)
+            } else {
+                falling_block_render(&block)
             }
         }
     }
@@ -230,7 +234,7 @@ debug_render :: proc(scene : ^Scene) {
                         "velocity.y ", player.velocity.y, "\n",
                         )
     
-    draw_text_outlined(text, 8, -5, 10, rl.WHITE, rl.BLACK, 1)
+    draw_text_outlined(text, 8, -5, 10, rl.WHITE, rl.BLACK)
 }
 
 draw_text_outlined :: proc(text: cstring, x, y: i32, font_size: i32, text_color: rl.Color, outline_color: rl.Color, outline_size: i32 = 1) {
