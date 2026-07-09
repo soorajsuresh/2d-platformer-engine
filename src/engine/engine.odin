@@ -19,61 +19,30 @@ Scene :: struct {
     actors : [dynamic]Actor,
     next_actor: Actor,
 
+    transforms: map[Actor]Transform,
+
     player : Player,
     blocks : map[Actor]Block,
 }
 
-create_actor :: proc(scene: ^Scene) -> Actor {
-    actor := scene.next_actor
-    scene.next_actor += 1
-    append(&scene.actors, actor)
-    return actor
-}
+run :: proc() {
+    engine : Engine
+    engine_init(&engine)
 
-player_create :: proc(scene: ^Scene) -> Actor {
-    actor := create_actor(scene)
-    player : Player
-    player.actor = actor
-    player_init(&player, position = Vector2{512-128, 10})
-    player_add(scene, actor, player)
-    return actor
-}
+    scene : Scene
+    scene_init(&scene)
 
-player_add :: proc(scene: ^Scene, actor: Actor, player: Player) {
-    scene.player = player
-}
+    rl.InitWindow(512, 288, "2D Platformer Engine")
+    rl.SetTargetFPS(TARGET_FPS)
 
-player_get :: proc(scene: ^Scene) -> ^Player {
-    return &scene.player
-}
-
-block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Block_Type = .Solid, falling: bool = false) -> Actor {
-    actor := create_actor(scene)
-    block := Block {
-        actor = actor,
-        position = position,
-        size = size,
-        type = type
+    for !rl.WindowShouldClose() {
+        update(&engine, &scene)
+        render(&scene)
     }
-    if !falling {
-        block_init(&block)
-    } else {
-        falling_block_init(&block)
-    }
-    block_add(scene, actor, block)
-    return actor
-}
 
-jump_through_block_create :: proc(scene: ^Scene, position, size: Vector2) -> Actor {
-    return block_create(scene, position, size, .Jump_Through)
-}
+    scene_end(&scene)
 
-falling_block_create :: proc(scene: ^Scene, position, size: Vector2) -> Actor {
-    return block_create(scene, position, size, .Solid, falling = true)
-}
-
-block_add :: proc(scene: ^Scene, actor: Actor, block: Block) {
-    scene.blocks[actor] = block
+    rl.CloseWindow()
 }
 
 engine_init :: proc(engine: ^Engine) {
@@ -112,24 +81,67 @@ scene_init :: proc(scene: ^Scene) {
     falling_block_create(scene, Vector2{512-128-32,128}, Vector2{32, 32})
 }
 
-run :: proc() {
-    engine : Engine
-    engine_init(&engine)
+player_create :: proc(scene: ^Scene) {
+    actor := actor_create(scene)
+    player : Player
+    player.actor = actor
+    player_init(&player, position = Vector2{512-128, 10})
+    player_add(scene, actor, player)
+}
 
-    scene : Scene
-    scene_init(&scene)
+actor_create :: proc(scene: ^Scene) -> Actor {
+    actor := scene.next_actor
+    scene.next_actor += 1
+    append(&scene.actors, actor)
+    return actor
+}
 
-    rl.InitWindow(512, 288, "2D Platformer Engine")
-    rl.SetTargetFPS(TARGET_FPS)
+player_add :: proc(scene: ^Scene, actor: Actor, player: Player) {
+    scene.player = player
+}
 
-    for !rl.WindowShouldClose() {
-        update(&engine, &scene)
-        render(&scene)
+block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Block_Type = .Solid, falling: bool = false) {
+    actor := actor_create(scene)
+
+    block := Block {
+        size = size,
+        type = type
     }
 
-    scene_end(&scene)
+    transform := Transform {
+        position = position,
+    }
 
-    rl.CloseWindow()
+    block.collider.collision_rectangle = CollisionRectangle{position, size}
+    
+    if !falling {
+        block.has_falling = false
+    } else {
+        block.has_falling = true
+        block.falling = Falling {
+            acceleration = Vector2{0, GRAVITY},
+            state = .Suspended
+        }
+    }
+
+    block_add(scene, actor, block)
+    transform_add(scene, actor, transform)
+}
+
+transform_add :: proc(scene: ^Scene, actor: Actor, transform: Transform) {
+    scene.transforms[actor] = transform
+}
+
+block_add :: proc(scene: ^Scene, actor: Actor, block: Block) {
+    scene.blocks[actor] = block
+}
+
+jump_through_block_create :: proc(scene: ^Scene, position, size: Vector2) {
+    block_create(scene, position, size, .Jump_Through)
+}
+
+falling_block_create :: proc(scene: ^Scene, position, size: Vector2) {
+    block_create(scene, position, size, .Solid, falling = true)
 }
 
 update :: proc(engine: ^Engine, scene: ^Scene) {
@@ -161,10 +173,10 @@ update :: proc(engine: ^Engine, scene: ^Scene) {
 scene_update :: proc(scene: ^Scene, dt: f32) {
     for actor, &block in scene.blocks {
         if block.has_falling {
-            falling_block_update(scene, &block, dt)
+            falling_block_update(scene, actor, &block, dt)
         }
     }
-    player_update(scene, &scene.player, dt)
+    player_update(scene, scene.player.actor, &scene.player, dt)
 }
 
 scene_restart :: proc(scene: ^Scene) {
@@ -197,12 +209,12 @@ scene_render :: proc(scene: ^Scene) {
 
     for actor, &block in scene.blocks {
         if block.type == .Jump_Through {
-            jump_through_block_render(&block)
+            jump_through_block_render(scene, actor, &block)
         } else {
             if !block.has_falling {
-                block_render(&block)
+                block_render(scene, actor, &block)
             } else {
-                falling_block_render(&block)
+                falling_block_render(scene, actor, &block)
             }
         }
     }

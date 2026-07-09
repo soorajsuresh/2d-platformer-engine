@@ -1,6 +1,7 @@
 package engine
 
 import rl "vendor:raylib"
+import "core:fmt"
 
 Falling :: struct {
     velocity: Vector2,
@@ -16,90 +17,83 @@ Falling_Block_State :: enum {
     Landed
 }
 
-falling_block_init :: proc(b: ^Block) {
-    block_init(b)
-    b.has_falling = true
-    b.falling = Falling {
-        acceleration = Vector2{0, GRAVITY},
-        state = .Suspended
-    }
-}
+falling_block_update :: proc(scene: ^Scene, actor: Actor, block: ^Block, dt: f32) {
 
-falling_block_update :: proc(scene: ^Scene, b: ^Block, dt: f32) {
-
-    if colliders_intersect_at(b.collider, scene.player.collider, Vector2{0, -1}) {
-        b.falling.state = .Falling
+    if colliders_intersect_at(block.collider, scene.player.collider, Vector2{0, -1}) {
+        block.falling.state = .Falling
 
         // TODO: the following does not feel great
-        append(&b.falling.riders, &scene.player.collider)
+        /*append(&block.falling.riders, &scene.player.collider)
         for actor, &block in scene.blocks {
-            if block.has_falling && &block != b{
-                append(&b.falling.riders, &block.collider)
+            if block.has_falling && &block != &block {
+                append(&block.falling.riders, &block.collider)
             }
-        }
+        }*/
     }
 
-    if b.falling.state == .Falling {
-        falling_block_update_velocity(b, dt)
-        falling_block_update_position(scene, b, dt)
+    if block.falling.state == .Falling {
+        falling_block_update_velocity(block, dt)
+        falling_block_update_position(scene, actor, block, dt)
     }
 }
 
-falling_block_update_velocity :: proc(b: ^Block, dt: f32) {
-    b.falling.velocity = add(b.falling.velocity, scale(dt, b.falling.acceleration))
+falling_block_update_velocity :: proc(block: ^Block, dt: f32) {
+    block.falling.velocity = add(block.falling.velocity, scale(dt, block.falling.acceleration))
 }
 
-falling_block_update_position :: proc(scene: ^Scene, b: ^Block, dt: f32) {
-    subpixel_move(scene, Block, b, &b.falling.velocity.y, &b.falling.remainder.y, falling_block_attempt_move_y, falling_block_move_y, falling_block_collide_y, dt)
+falling_block_update_position :: proc(scene: ^Scene, actor: Actor, block: ^Block, dt: f32) {
+    subpixel_move(scene, actor, Block, block, &block.falling.velocity.y, &block.falling.remainder.y, falling_block_attempt_move_y, falling_block_move_y, falling_block_collide_y, dt)
 }
 
-falling_block_attempt_move_y :: proc(scene: ^Scene, b: ^Block, offset: f32) -> bool {
-    solid := falling_block_collision_with_solid_at(scene, b, Vector2{0, offset})
+falling_block_attempt_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: f32) -> bool {
+    solid := falling_block_collision_with_solid_at(scene, actor, block, Vector2{0, offset})
 
     if solid != nil {
-        falling_block_collide_y(b)
+        falling_block_collide_y(block)
         return false
     }
 
     return true
 }
 
-falling_block_collision_with_solid_at :: proc(scene: ^Scene, b: ^Block, offset: Vector2) -> ^Block {
+falling_block_collision_with_solid_at :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: Vector2) -> ^Block {
 
-    solid := collider_intersecting_solid_at(scene, b.collider, offset, b)
+    solid := collider_intersecting_solid_at(scene, actor, block.collider, offset, block)
     if solid != nil {
         return solid
     }
 
-    for actor, &block in scene.blocks {
-        if block.type != .Jump_Through {
+    for other_actor, &other_block in scene.blocks {
+        if other_block.type != .Jump_Through {
             continue
         }
 
-        if !colliders_intersect_at(b.collider, block.collider, Vector2{0,1}) {
+        if !colliders_intersect_at(block.collider, other_block.collider, Vector2{0,1}) {
             continue
         }
 
-        if colliders_intersect(b.collider, block.collider) {
+        if colliders_intersect(block.collider, other_block.collider) {
             continue
         }
 
-        return &block
+        return &other_block
     }
     return nil
 }
 
-falling_block_collide_y :: proc(b: ^Block) {
-    b.falling.velocity.y = 0
-    b.falling.remainder.y = 0
+falling_block_collide_y :: proc(block: ^Block) {
+    block.falling.velocity.y = 0
+    block.falling.remainder.y = 0
 }
         
-falling_block_move_y :: proc(b: ^Block, offset: f32) {
-    b.position = add(b.position, Vector2{0, offset})
-    b.collider.collision_rectangle.offset = b.position
+falling_block_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: f32) {
+    transform := &scene.transforms[actor]
+    transform.position = add(transform.position, Vector2{0, offset})
+    block.collider.collision_rectangle.offset = transform.position
 }
 
-falling_block_render :: proc(b: ^Block) {
-    w, h := b.collider.collision_rectangle.size.x, b.collider.collision_rectangle.size.y
-    rl.DrawRectangleV(rl.Vector2{b.position.x, b.position.y}, rl.Vector2{w, h}, rl.BROWN)
+falling_block_render :: proc(scene: ^Scene, actor: Actor, block: ^Block) {
+    transform := scene.transforms[actor]
+    w, h := block.collider.collision_rectangle.size.x, block.collider.collision_rectangle.size.y
+    rl.DrawRectangleV(rl.Vector2{transform.position.x, transform.position.y}, rl.Vector2{w, h}, rl.BROWN)
 }

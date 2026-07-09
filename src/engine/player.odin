@@ -104,16 +104,16 @@ player_init :: proc (p: ^Player, position: Vector2) {
     p.can_move_horizontally = true
 }
 
-player_update :: proc(scene: ^Scene, p: ^Player, dt: f32) {
-    player_update_collisions(scene, p)
+player_update :: proc(scene: ^Scene, actor: Actor, p: ^Player, dt: f32) {
+    player_update_collisions(scene, actor, p)
     player_update_physics(scene, p, dt)
     player_update_action(p)
     player_update_velocity(p, dt)
-    player_update_position(scene, p, dt)
+    player_update_position(scene, actor, p, dt)
 }
 
-player_update_collisions :: proc(scene: ^Scene, p: ^Player) {
-    p.ground = player_collision_with_solid_at(scene, p, Vector2{0, 1})
+player_update_collisions :: proc(scene: ^Scene, actor: Actor, p: ^Player) {
+    p.ground = player_collision_with_solid_at(scene, actor, p, Vector2{0, 1})
     if p.ground == nil {
         jumpthroughs := player_collision_with_jumpthrough_below(scene, p)
         if len(jumpthroughs) > 0 {
@@ -124,12 +124,12 @@ player_update_collisions :: proc(scene: ^Scene, p: ^Player) {
         }
     }
     
-    p.wall_right = player_collision_with_solid_at(scene, p, Vector2{1, 0})
-    p.wall_left = player_collision_with_solid_at(scene, p, Vector2{-1, 0})
+    p.wall_right = player_collision_with_solid_at(scene, actor, p, Vector2{1, 0})
+    p.wall_left = player_collision_with_solid_at(scene, actor, p, Vector2{-1, 0})
 }
 
-player_collision_with_solid_at :: proc(scene: ^Scene, p: ^Player, offset: Vector2) -> ^Block {
-    return collider_intersecting_solid_at(scene, p.collider, offset)
+player_collision_with_solid_at :: proc(scene: ^Scene, actor: Actor, p: ^Player, offset: Vector2) -> ^Block {
+    return collider_intersecting_solid_at(scene, actor, p.collider, offset)
 }
 
 player_collision_with_jumpthrough_below :: proc(scene: ^Scene, p: ^Player) -> [dynamic]^Block { 
@@ -410,13 +410,13 @@ player_update_vertical_velocity :: proc(p: ^Player, dt: f32) {
     }
 }
 
-player_update_position :: proc(scene: ^Scene, p: ^Player, dt: f32) {
-    subpixel_move(scene, Player, p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
-    subpixel_move(scene, Player, p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
+player_update_position :: proc(scene: ^Scene, actor: Actor, p: ^Player, dt: f32) {
+    subpixel_move(scene, actor, Player, p, &p.velocity.x, &p.remainder.x, player_attempt_move_x, player_move_x, player_collide_x, dt)
+    subpixel_move(scene, actor, Player, p, &p.velocity.y, &p.remainder.y, player_attempt_move_y, player_move_y, player_collide_y, dt)
 }
 
-player_attempt_move_x :: proc(scene: ^Scene, p: ^Player, offset: f32) -> bool {
-    if player_collision_with_solid_at(scene, p, Vector2{offset, 0}) != nil {
+player_attempt_move_x :: proc(scene: ^Scene, actor: Actor, p: ^Player, offset: f32) -> bool {
+    if player_collision_with_solid_at(scene, actor, p, Vector2{offset, 0}) != nil {
         player_collide_x(p)
         return false
     }
@@ -424,8 +424,8 @@ player_attempt_move_x :: proc(scene: ^Scene, p: ^Player, offset: f32) -> bool {
     return true
 }
 
-player_attempt_move_y :: proc(scene: ^Scene, p: ^Player, offset: f32) -> bool {
-    solid := player_collision_with_solid_at(scene, p, Vector2{0, offset})
+player_attempt_move_y :: proc(scene: ^Scene, actor: Actor, p: ^Player, offset: f32) -> bool {
+    solid := player_collision_with_solid_at(scene, actor, p, Vector2{0, offset})
 
     if solid == nil && offset > 0 {
         jumpthroughs := player_collision_with_jumpthrough_below(scene, p)
@@ -460,11 +460,11 @@ player_collide_y :: proc(p: ^Player) {
     p.remainder.y = 0
 }
         
-player_move_x :: proc(p: ^Player, offset: f32) {
+player_move_x :: proc(scene: ^Scene, actor: Actor, p: ^Player, offset: f32) {
     player_move(p, Vector2{offset, 0})
 }
 
-player_move_y :: proc(p: ^Player, offset: f32) {
+player_move_y :: proc(scene: ^Scene, actor: Actor, p: ^Player, offset: f32) {
     player_move(p, Vector2{0, offset})
 }
 

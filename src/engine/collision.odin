@@ -1,6 +1,8 @@
 package engine
 import rl "vendor:raylib"
 
+// TODO: Did a bulk change of passing in scene and actor; maybe not all the functions need this; have not thought about it
+
 CollisionRectangle :: struct {
     offset: Vector2,
     size: Vector2
@@ -27,11 +29,11 @@ rectangles_intersect_at :: proc(a, b: CollisionRectangle, offset: Vector2) -> bo
     return rectangles_intersect(r, b)
 }
 
-collider_intersecting_solid :: proc(scene: ^Scene, e: Collider, ignore: ^Block) -> ^Block {
-    return intersecting_solid(scene, e.collision_rectangle, ignore)
+collider_intersecting_solid :: proc(scene: ^Scene, actor: Actor, e: Collider, ignore: ^Block) -> ^Block {
+    return intersecting_solid(scene, actor, e.collision_rectangle, ignore)
 }
 
-intersecting_solid :: proc(scene: ^Scene, a: CollisionRectangle, ignore: ^Block) -> ^Block {
+intersecting_solid :: proc(scene: ^Scene, actor: Actor, a: CollisionRectangle, ignore: ^Block) -> ^Block {
     for actor, &block in scene.blocks {
         if rectangles_intersect(a, block.collider.collision_rectangle) && block.type == .Solid && &block != ignore {
             return &block
@@ -40,14 +42,14 @@ intersecting_solid :: proc(scene: ^Scene, a: CollisionRectangle, ignore: ^Block)
     return nil
 }
 
-collider_intersecting_solid_at :: proc(scene: ^Scene, e: Collider, offset: Vector2, ignore: ^Block = nil) -> ^Block {
-    return intersecting_solid_at(scene, e.collision_rectangle, offset, ignore)
+collider_intersecting_solid_at :: proc(scene: ^Scene, actor: Actor, e: Collider, offset: Vector2, ignore: ^Block = nil) -> ^Block {
+    return intersecting_solid_at(scene, actor, e.collision_rectangle, offset, ignore)
 }
 
-intersecting_solid_at :: proc(scene: ^Scene, a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> ^Block {
+intersecting_solid_at :: proc(scene: ^Scene, actor: Actor, a: CollisionRectangle, offset: Vector2, ignore: ^Block = nil) -> ^Block {
     rect := a
     rect.offset = add(rect.offset, offset)
-    return intersecting_solid(scene, rect, ignore)
+    return intersecting_solid(scene, actor, rect, ignore)
 }
 
 collider_intersecting_solids_at :: proc(scene: ^Scene, e: Collider, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {

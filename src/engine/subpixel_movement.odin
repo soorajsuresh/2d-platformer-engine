@@ -6,7 +6,7 @@ Subpixel_Movement :: struct {
     displacement_remainder: Vector2
 }
 
-subpixel_move :: proc(scene: ^Scene, $T: typeid, object: ^T, speed: ^f32, remainder: ^f32, attempt_move: proc(scene: ^Scene, object: ^T, offset: f32) -> bool, move: proc(object: ^T, offset: f32), collide: proc(object: ^T), dt: f32) {
+subpixel_move :: proc(scene: ^Scene, actor: Actor, $T: typeid, object: ^T, speed: ^f32, remainder: ^f32, attempt_move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32) -> bool, move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32), collide: proc(object: ^T), dt: f32) {
     remainder^ += speed^ * dt
     displacement := math.round(remainder^)
     if displacement != 0 {
@@ -14,8 +14,8 @@ subpixel_move :: proc(scene: ^Scene, $T: typeid, object: ^T, speed: ^f32, remain
         step := sign(displacement)
 
         for displacement != 0 {
-            if attempt_move(scene, object, step) {
-                move(object, step)
+            if attempt_move(scene, actor, object, step) {
+                move(scene, actor, object, step)
             } else {
                 break
             }
@@ -23,7 +23,7 @@ subpixel_move :: proc(scene: ^Scene, $T: typeid, object: ^T, speed: ^f32, remain
             displacement -= step
         }
     } else if speed^ != 0 {
-        if !attempt_move(scene, object, sign(speed^)) {
+        if !attempt_move(scene, actor, object, sign(speed^)) {
             collide(object)
         }
     }
