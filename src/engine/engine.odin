@@ -52,41 +52,48 @@ engine_init :: proc(engine: ^Engine) {
 }
 
 scene_init :: proc(scene: ^Scene) {
-    
-    player_create(scene)
+    scene.transforms = make(map[Actor]Transform)
+    player_create(scene, Vector2{512-128, 64})
 
     scene.blocks = make(map[Actor]Block)
-
     block_create(scene, Vector2{512-128,128}, Vector2{32,32})
-
     block_create(scene, Vector2{512-128,128}, Vector2{32,32})
     block_create(scene, Vector2{512-96,128}, Vector2{32,32})
     block_create(scene, Vector2{32,160}, Vector2{64,32})
-    
     for x := 0; x < 512; x += 32 {
         block_create(scene, Vector2{f32(x), 256}, Vector2{32, 32})
     }
-    
     for y := 0; y < 288; y += 32 {
         block_create(scene, Vector2{0, f32(y)}, size = Vector2{32, 32})
         block_create(scene, Vector2{512 - 32, f32(y)}, size = Vector2{32, 32})
     }
-
     jump_through_block_create(scene, Vector2{256, 224}, size = Vector2{32, 32})
     jump_through_block_create(scene, Vector2{256, 224-32},size = Vector2{32, 32})
     jump_through_block_create(scene, Vector2{256+32, 224-32},size = Vector2{32, 32})
     jump_through_block_create(scene, Vector2{256+64, 224-32},size = Vector2{32, 32})
     jump_through_block_create(scene, Vector2{256+96, 224-32},size = Vector2{32, 32})
-
     falling_block_create(scene, Vector2{512-128-32,128}, Vector2{32, 32})
 }
 
-player_create :: proc(scene: ^Scene) {
+player_create :: proc(scene: ^Scene, position: Vector2) {
     actor := actor_create(scene)
+    
     player : Player
     player.actor = actor
-    player_init(&player, position = Vector2{512-128, 10})
+
+    transform := Transform {
+        position = position,
+    }
+
+    // TODO: Extract
+    player.collider = Collider{
+        collision_rectangle = CollisionRectangle{position, Vector2{32, 32}},
+    }
+
+    player_init(&player)
+
     player_add(scene, actor, player)
+    transform_add(scene, actor, transform)
 }
 
 actor_create :: proc(scene: ^Scene) -> Actor {
@@ -100,11 +107,14 @@ player_add :: proc(scene: ^Scene, actor: Actor, player: Player) {
     scene.player = player
 }
 
+transform_add :: proc(scene: ^Scene, actor: Actor, transform: Transform) {
+    scene.transforms[actor] = transform
+}
+
 block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Block_Type = .Solid, falling: bool = false) {
     actor := actor_create(scene)
 
     block := Block {
-        size = size,
         type = type
     }
 
@@ -112,8 +122,10 @@ block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Bloc
         position = position,
     }
 
+    // TODO: Extract
     block.collider.collision_rectangle = CollisionRectangle{position, size}
     
+    // TODO: Falling Component?
     if !falling {
         block.has_falling = false
     } else {
@@ -128,14 +140,6 @@ block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Bloc
     transform_add(scene, actor, transform)
 }
 
-transform_add :: proc(scene: ^Scene, actor: Actor, transform: Transform) {
-    scene.transforms[actor] = transform
-}
-
-block_add :: proc(scene: ^Scene, actor: Actor, block: Block) {
-    scene.blocks[actor] = block
-}
-
 jump_through_block_create :: proc(scene: ^Scene, position, size: Vector2) {
     block_create(scene, position, size, .Jump_Through)
 }
@@ -144,10 +148,14 @@ falling_block_create :: proc(scene: ^Scene, position, size: Vector2) {
     block_create(scene, position, size, .Solid, falling = true)
 }
 
+block_add :: proc(scene: ^Scene, actor: Actor, block: Block) {
+    scene.blocks[actor] = block
+}
+
 update :: proc(engine: ^Engine, scene: ^Scene) {
     engine.time_scale = 0.25 if input.ctrl else 1
-
     dt : f32 = rl.GetFrameTime() * engine.time_scale
+
     update_input_state()
 
     if input.restart_pressed {
@@ -183,11 +191,13 @@ scene_restart :: proc(scene: ^Scene) {
     clear(&scene.actors)
     scene.next_actor = 0
     clear(&scene.blocks)
+    clear(&scene.transforms)
     scene_init(scene)
 }
 
 scene_end :: proc(scene: ^Scene) {
     delete(scene.actors)
+    delete(scene.transforms)
     delete(scene.blocks)
 }
 
@@ -205,7 +215,7 @@ render :: proc(scene: ^Scene) {
 }
 
 scene_render :: proc(scene: ^Scene) {
-    player_render(&scene.player)
+    player_render(scene, &scene.player)
 
     for actor, &block in scene.blocks {
         if block.type == .Jump_Through {

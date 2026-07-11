@@ -9,7 +9,6 @@ Block_Type :: enum {
 
 Block :: struct {
     collider: Collider,
-    size: Vector2,
     type: Block_Type,
     falling: Falling, // TODO: I don't like that every block has these fields -> falling component
     has_falling: bool

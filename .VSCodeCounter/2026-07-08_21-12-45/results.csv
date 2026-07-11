@@ -1,0 +1,14 @@
+"filename", "language", "Odin", "comment", "blank", "total"
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\block.odin", "Odin", 18, 0, 5, 23
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\collider.odin", "Odin", 4, 0, 1, 5
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\collision.odin", "Odin", 63, 1, 14, 78
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\engine.odin", "Odin", 204, 0, 60, 264
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\falling_block.odin", "Odin", 71, 7, 21, 99
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\input.odin", "Odin", 23, 0, 9, 32
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\jump_through_block.odin", "Odin", 7, 0, 4, 11
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\math.odin", "Odin", 19, 0, 6, 25
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\player.odin", "Odin", 421, 12, 72, 505
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\subpixel_movement.odin", "Odin", 25, 0, 5, 30
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\engine\transform.odin", "Odin", 4, 0, 1, 5
+"c:\Users\Sooraj\Documents\Projects\Odin\2d-platformer-engine\src\main.odin", "Odin", 5, 0, 2, 7
+"Total", "-", 864, 20, 200, 1084

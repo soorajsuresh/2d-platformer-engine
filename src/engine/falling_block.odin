@@ -19,7 +19,7 @@ Falling_Block_State :: enum {
 
 falling_block_update :: proc(scene: ^Scene, actor: Actor, block: ^Block, dt: f32) {
 
-    if colliders_intersect_at(block.collider, scene.player.collider, Vector2{0, -1}) {
+    if colliders_intersect_when_offset(block.collider, scene.player.collider, Vector2{0, -1}) {
         block.falling.state = .Falling
 
         // TODO: the following does not feel great
@@ -42,11 +42,11 @@ falling_block_update_velocity :: proc(block: ^Block, dt: f32) {
 }
 
 falling_block_update_position :: proc(scene: ^Scene, actor: Actor, block: ^Block, dt: f32) {
-    subpixel_move(scene, actor, Block, block, &block.falling.velocity.y, &block.falling.remainder.y, falling_block_attempt_move_y, falling_block_move_y, falling_block_collide_y, dt)
+    subpixel_move(scene, actor, Block, block, &block.falling.velocity.y, &block.falling.remainder.y, falling_block_when_offsettempt_move_y, falling_block_move_y, falling_block_collide_y, dt)
 }
 
-falling_block_attempt_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: f32) -> bool {
-    solid := falling_block_collision_with_solid_at(scene, actor, block, Vector2{0, offset})
+falling_block_when_offsettempt_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: f32) -> bool {
+    solid := falling_block_collision_with_solid_when_offset(scene, actor, block, Vector2{0, offset})
 
     if solid != nil {
         falling_block_collide_y(block)
@@ -56,9 +56,9 @@ falling_block_attempt_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block,
     return true
 }
 
-falling_block_collision_with_solid_at :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: Vector2) -> ^Block {
+falling_block_collision_with_solid_when_offset :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: Vector2) -> ^Block {
 
-    solid := collider_intersecting_solid_at(scene, actor, block.collider, offset, block)
+    solid := collider_intersecting_solid_when_offset(scene, block.collider, offset, block)
     if solid != nil {
         return solid
     }
@@ -68,7 +68,7 @@ falling_block_collision_with_solid_at :: proc(scene: ^Scene, actor: Actor, block
             continue
         }
 
-        if !colliders_intersect_at(block.collider, other_block.collider, Vector2{0,1}) {
+        if !colliders_intersect_when_offset(block.collider, other_block.collider, Vector2{0,1}) {
             continue
         }
 
