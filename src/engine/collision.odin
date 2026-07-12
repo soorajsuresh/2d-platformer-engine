@@ -37,7 +37,7 @@ collider_intersecting_solids :: proc(scene: ^Scene, c: Collider, ignore: ^Block 
 
 rectangle_intersecting_solid :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> ^Block {
     for actor, &block in scene.blocks {
-        if &block != ignore && block.type == .Solid && rectangles_intersect(r, block.collider.collision_rectangle)  {
+        if &block != ignore && block.type == .Solid && rectangles_intersect(r, scene.colliders[actor].collision_rectangle)  {
             return &block
         }
     }
@@ -47,7 +47,7 @@ rectangle_intersecting_solid :: proc(scene: ^Scene, r: CollisionRectangle, ignor
 rectangle_intersecting_solids :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> [dynamic]^Block {
     solids : [dynamic]^Block
     for actor, &block in scene.blocks {
-        if &block != ignore && block.type == .Solid && rectangles_intersect(r, block.collider.collision_rectangle) {
+        if &block != ignore && block.type == .Solid && rectangles_intersect(r, scene.colliders[actor].collision_rectangle) {
             append(&solids, &block)
         }
     }

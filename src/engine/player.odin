@@ -29,8 +29,6 @@ Player_Action :: enum {
 
 Player :: struct {
 	actor:                                  Actor,
-	collider:                               Collider,
-	transform:                              Transform,
 	velocity:                               Vector2,
 	remainder:                              Vector2, // TODO: better name?
 	acceleration:                           Vector2,
@@ -130,10 +128,12 @@ player_collision_with_solid_when_offset :: proc(
 	player: ^Player,
 	offset: Vector2,
 ) -> ^Block {
-	return collider_intersecting_solid_when_offset(scene, player.collider, offset)
+	return collider_intersecting_solid_when_offset(scene, scene.colliders[player.actor], offset)
 }
 
 player_collision_with_jumpthrough_below :: proc(scene: ^Scene, player: ^Player) -> [dynamic]^Block {
+
+	player_collider := scene.colliders[player.actor]
 
 	jumpthroughs: [dynamic]^Block
 
@@ -142,11 +142,13 @@ player_collision_with_jumpthrough_below :: proc(scene: ^Scene, player: ^Player) 
 			continue
 		}
 
-		if !colliders_intersect_when_offset(player.collider, block.collider, Vector2{0, 1}) {
+		block_collider := scene.colliders[actor]
+ 
+		if !colliders_intersect_when_offset(player_collider, block_collider, Vector2{0, 1}) {
 			continue
 		}
 
-		if colliders_intersect(player.collider, block.collider) {
+		if colliders_intersect(player_collider, block_collider) {
 			should_ignore, to_ignore_index := player_should_ignore(&block)
 			if should_ignore {
 				unordered_remove(&jumpthroughs_to_ignore, to_ignore_index)
@@ -509,20 +511,22 @@ player_move_y :: proc(scene: ^Scene, actor: Actor, player: ^Player, offset: f32)
 player_move :: proc(scene: ^Scene, actor: Actor, player: ^Player, offset: Vector2) {
 
     transform := &scene.transforms[actor]
+	collider := &scene.colliders[actor]
 
 	transform.position = add(transform.position, offset)
-	player.collider.collision_rectangle.offset = transform.position
+	collider.collision_rectangle.offset = transform.position
 }
 
 player_render :: proc(scene: ^Scene, player: ^Player) {
 
 	transform := scene.transforms[player.actor]
+	collider := scene.colliders[player.actor]
 
 	rl.DrawRectangleV(
 		rl.Vector2{transform.position.x, transform.position.y},
 		rl.Vector2 {
-			player.collider.collision_rectangle.size.x,
-			player.collider.collision_rectangle.size.y,
+			collider.collision_rectangle.size.x,
+			collider.collision_rectangle.size.y,
 		},
 		rl.MAGENTA,
 	)

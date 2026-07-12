@@ -18,8 +18,10 @@ Falling_Block_State :: enum {
 }
 
 falling_block_update :: proc(scene: ^Scene, actor: Actor, block: ^Block, dt: f32) {
+    block_collider := scene.colliders[actor]
+    player_collider := scene.colliders[scene.player.actor]
 
-    if colliders_intersect_when_offset(block.collider, scene.player.collider, Vector2{0, -1}) {
+    if colliders_intersect_when_offset(block_collider, player_collider, Vector2{0, -1}) {
         block.falling.state = .Falling
 
         // TODO: the following does not feel great
@@ -58,7 +60,7 @@ falling_block_when_offsettempt_move_y :: proc(scene: ^Scene, actor: Actor, block
 
 falling_block_collision_with_solid_when_offset :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: Vector2) -> ^Block {
 
-    solid := collider_intersecting_solid_when_offset(scene, block.collider, offset, block)
+    solid := collider_intersecting_solid_when_offset(scene, scene.colliders[actor], offset, block)
     if solid != nil {
         return solid
     }
@@ -68,11 +70,13 @@ falling_block_collision_with_solid_when_offset :: proc(scene: ^Scene, actor: Act
             continue
         }
 
-        if !colliders_intersect_when_offset(block.collider, other_block.collider, Vector2{0,1}) {
+        block_collider := scene.colliders[actor]
+        other_block_collider := scene.colliders[other_actor]
+        if !colliders_intersect_when_offset(block_collider, other_block_collider, Vector2{0,1}) {
             continue
         }
 
-        if colliders_intersect(block.collider, other_block.collider) {
+        if colliders_intersect(block_collider, other_block_collider) {
             continue
         }
 
@@ -88,12 +92,14 @@ falling_block_collide_y :: proc(block: ^Block) {
         
 falling_block_move_y :: proc(scene: ^Scene, actor: Actor, block: ^Block, offset: f32) {
     transform := &scene.transforms[actor]
+    collider := &scene.colliders[actor]
     transform.position = add(transform.position, Vector2{0, offset})
-    block.collider.collision_rectangle.offset = transform.position
+    collider.collision_rectangle.offset = transform.position
 }
 
 falling_block_render :: proc(scene: ^Scene, actor: Actor, block: ^Block) {
     transform := scene.transforms[actor]
-    w, h := block.collider.collision_rectangle.size.x, block.collider.collision_rectangle.size.y
+    collider := scene.colliders[actor]
+    w, h := collider.collision_rectangle.size.x, collider.collision_rectangle.size.y
     rl.DrawRectangleV(rl.Vector2{transform.position.x, transform.position.y}, rl.Vector2{w, h}, rl.BROWN)
 }

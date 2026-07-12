@@ -20,6 +20,7 @@ Scene :: struct {
     next_actor: Actor,
 
     transforms: map[Actor]Transform,
+    colliders: map[Actor]Collider,
 
     player : Player,
     blocks : map[Actor]Block,
@@ -53,6 +54,8 @@ engine_init :: proc(engine: ^Engine) {
 
 scene_init :: proc(scene: ^Scene) {
     scene.transforms = make(map[Actor]Transform)
+    scene.colliders = make(map[Actor]Collider)
+
     player_create(scene, Vector2{512-128, 64})
 
     scene.blocks = make(map[Actor]Block)
@@ -85,8 +88,7 @@ player_create :: proc(scene: ^Scene, position: Vector2) {
         position = position,
     }
 
-    // TODO: Extract
-    player.collider = Collider{
+    collider := Collider{
         collision_rectangle = CollisionRectangle{position, Vector2{32, 32}},
     }
 
@@ -94,6 +96,7 @@ player_create :: proc(scene: ^Scene, position: Vector2) {
 
     player_add(scene, actor, player)
     transform_add(scene, actor, transform)
+    collider_add(scene, actor, collider)
 }
 
 actor_create :: proc(scene: ^Scene) -> Actor {
@@ -111,6 +114,10 @@ transform_add :: proc(scene: ^Scene, actor: Actor, transform: Transform) {
     scene.transforms[actor] = transform
 }
 
+collider_add :: proc(scene: ^Scene, actor: Actor, collider: Collider) {
+    scene.colliders[actor] = collider
+}
+
 block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Block_Type = .Solid, falling: bool = false) {
     actor := actor_create(scene)
 
@@ -122,8 +129,9 @@ block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Bloc
         position = position,
     }
 
-    // TODO: Extract
-    block.collider.collision_rectangle = CollisionRectangle{position, size}
+    collider := Collider {
+        collision_rectangle = CollisionRectangle{position, size}
+    }
     
     // TODO: Falling Component?
     if !falling {
@@ -138,6 +146,7 @@ block_create :: proc(scene: ^Scene, position: Vector2, size: Vector2, type: Bloc
 
     block_add(scene, actor, block)
     transform_add(scene, actor, transform)
+    collider_add(scene, actor, collider)
 }
 
 jump_through_block_create :: proc(scene: ^Scene, position, size: Vector2) {
@@ -192,12 +201,14 @@ scene_restart :: proc(scene: ^Scene) {
     scene.next_actor = 0
     clear(&scene.blocks)
     clear(&scene.transforms)
+    clear(&scene.colliders)
     scene_init(scene)
 }
 
 scene_end :: proc(scene: ^Scene) {
     delete(scene.actors)
     delete(scene.transforms)
+    delete(scene.colliders)
     delete(scene.blocks)
 }
 
@@ -233,10 +244,11 @@ scene_render :: proc(scene: ^Scene) {
 debug_render :: proc(scene : ^Scene) {
     
     player := &scene.player
-
-    collision_rectangle_render(&player.collider.collision_rectangle)
+    collider := scene.colliders[player.actor]
+    collision_rectangle_render(&collider.collision_rectangle)
     for actor, &block in scene.blocks {
-        collision_rectangle_render(&block.collider.collision_rectangle)
+        collider := scene.colliders[actor]
+        collision_rectangle_render(&collider.collision_rectangle)
     }
     
     text := fmt.ctprint("\n",
