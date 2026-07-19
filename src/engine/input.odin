@@ -15,7 +15,7 @@ Input :: struct {
 
 input: Input
 
-update_input_state :: proc() {
+input_update :: proc() {
 
     input.right = rl.IsKeyDown(.RIGHT)
     input.left = rl.IsKeyDown(.LEFT)

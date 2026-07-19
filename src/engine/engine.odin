@@ -14,6 +14,7 @@ Engine :: struct {
 }
 
 Actor :: distinct u32
+NO_ACTOR :: Actor(0)
 
 Scene :: struct {
     actors : [dynamic]Actor,
@@ -165,7 +166,7 @@ update :: proc(engine: ^Engine, scene: ^Scene) {
     engine.time_scale = 0.25 if input.ctrl else 1
     dt : f32 = rl.GetFrameTime() * engine.time_scale
 
-    update_input_state()
+    input_update()
 
     if input.restart_pressed {
         scene_restart(scene)
@@ -188,20 +189,24 @@ update :: proc(engine: ^Engine, scene: ^Scene) {
 }
 
 scene_update :: proc(scene: ^Scene, dt: f32) {
+    player_update(scene, scene.player.actor, &scene.player, dt)
+    falling_blocks_update(scene, dt)
+}
+
+falling_blocks_update :: proc(scene: ^Scene, dt: f32) {
     for actor, &block in scene.blocks {
         if block.has_falling {
             falling_block_update(scene, actor, &block, dt)
         }
     }
-    player_update(scene, scene.player.actor, &scene.player, dt)
 }
 
 scene_restart :: proc(scene: ^Scene) {
-    clear(&scene.actors)
     scene.next_actor = 0
-    clear(&scene.blocks)
+    clear(&scene.actors)
     clear(&scene.transforms)
     clear(&scene.colliders)
+    clear(&scene.blocks)
     scene_init(scene)
 }
 

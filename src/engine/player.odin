@@ -30,13 +30,13 @@ Player_Action :: enum {
 Player :: struct {
 	actor:                                  Actor,
 	velocity:                               Vector2,
-	remainder:                              Vector2, // TODO: better name?
+	remainder:                              Vector2,
 	acceleration:                           Vector2,
 	resistance:                             f32,
 	deceleration:                           f32,
-	ground:                                 ^Block,
-	wall_right:                             ^Block,
-	wall_left:                              ^Block,
+	ground:                                 Actor,
+	wall_right:                             Actor,
+	wall_left:                              Actor,
 	physics_state:                          Player_Physics_State,
 	air_jumps:                              int,
 	air_jumps_remaining:                    int,
@@ -56,7 +56,7 @@ Player :: struct {
 JUMP_BUFFER: f32 = 0.05
 COYOTE_TIME: f32 = 0.05
 DROP_BUFFER: f32 = 0.05
-jumpthroughs_to_ignore: [dynamic]^Block
+jumpthroughs_to_ignore: [dynamic]Actor
 
 START_HORIZONTAL_VELOCITY: f32 : 2 * 60
 MAX_HORIZONTAL_SPEED: f32 : 8 * 60
@@ -80,9 +80,9 @@ player_init :: proc(player: ^Player) {
 	player.velocity = Vector2{}
 	player.remainder = Vector2{}
 	player.acceleration = Vector2{}
-	player.ground = nil
-	player.wall_right = nil
-	player.wall_left = nil
+	player.ground = NO_ACTOR
+	player.wall_right = NO_ACTOR
+	player.wall_left = NO_ACTOR
 	player.physics_state = .None
 	player.air_jumps = DEFAULT_AIR_JUMPS
 	player.air_jumps_remaining = player.air_jumps
@@ -95,7 +95,7 @@ player_init :: proc(player: ^Player) {
 	player.horizontal_movement_direction_actual = 0
 	player.horizontal_movement_direction_intended = 0
 	player.horizontal_facing_direction = 1
-	player.can_move_horizontally = true
+	player.can_move_horizontally = false
 }
 
 player_update :: proc(scene: ^Scene, actor: Actor, player: ^Player, dt: f32) {
@@ -107,35 +107,34 @@ player_update :: proc(scene: ^Scene, actor: Actor, player: ^Player, dt: f32) {
 }
 
 player_update_collisions :: proc(scene: ^Scene, actor: Actor, player: ^Player) {
-	player.ground = player_collision_with_solid_when_offset(scene, actor, player, Vector2{0, 1})
-	if player.ground == nil {
-		jumpthroughs := player_collision_with_jumpthrough_below(scene, player)
+	player.ground = player_colliding_solid_actor_when_offset(scene, actor, player, Vector2{0, 1})
+	if player.ground == NO_ACTOR {
+		jumpthroughs := player_colliding_jumpthrough_actors_below(scene, player)
 		if len(jumpthroughs) > 0 {
 			player.ground = jumpthroughs[0]
 			if player.drop_buffer > 0 {
-				player.ground = nil
+				player.ground = NO_ACTOR
 			}
 		}
 	}
 
-	player.wall_right = player_collision_with_solid_when_offset(scene, actor, player, Vector2{1, 0})
-	player.wall_left = player_collision_with_solid_when_offset(scene, actor, player, Vector2{-1, 0})
+	player.wall_right = player_colliding_solid_actor_when_offset(scene, actor, player, Vector2{1, 0})
+	player.wall_left = player_colliding_solid_actor_when_offset(scene, actor, player, Vector2{-1, 0})
 }
 
-player_collision_with_solid_when_offset :: proc(
+player_colliding_solid_actor_when_offset :: proc(
 	scene: ^Scene,
 	actor: Actor,
 	player: ^Player,
 	offset: Vector2,
-) -> ^Block {
-	return collider_intersecting_solid_when_offset(scene, scene.colliders[player.actor], offset)
+) -> Actor {
+	return collider_intersecting_solid_actor_when_offset(scene, scene.colliders[player.actor], offset)
 }
 
-player_collision_with_jumpthrough_below :: proc(scene: ^Scene, player: ^Player) -> [dynamic]^Block {
-
+player_colliding_jumpthrough_actors_below :: proc(scene: ^Scene, player: ^Player) -> [dynamic]Actor {
 	player_collider := scene.colliders[player.actor]
 
-	jumpthroughs: [dynamic]^Block
+	jumpthrough_actors: [dynamic]Actor
 
 	for actor, &block in scene.blocks {
 		if block.type != .Jump_Through {
@@ -149,27 +148,27 @@ player_collision_with_jumpthrough_below :: proc(scene: ^Scene, player: ^Player) 
 		}
 
 		if colliders_intersect(player_collider, block_collider) {
-			should_ignore, to_ignore_index := player_should_ignore(&block)
+			should_ignore, to_ignore_index := player_should_ignore(actor)
 			if should_ignore {
 				unordered_remove(&jumpthroughs_to_ignore, to_ignore_index)
 			}
 			continue
 		}
 
-		should_ignore, _ := player_should_ignore(&block)
+		should_ignore, _ := player_should_ignore(actor)
 		if should_ignore {
 			continue
 		}
 
-		append(&jumpthroughs, &block)
+		append(&jumpthrough_actors, actor)
 	}
 
-	return jumpthroughs
+	return jumpthrough_actors
 }
 
-player_should_ignore :: proc(jt: ^Block) -> (bool, int) {
+player_should_ignore :: proc(jumpthrough_actor: Actor) -> (bool, int) {
 	for to_ignore, i in jumpthroughs_to_ignore {
-		if jt == to_ignore {
+		if jumpthrough_actor == to_ignore {
 			return true, i
 		}
 	}
@@ -177,8 +176,7 @@ player_should_ignore :: proc(jt: ^Block) -> (bool, int) {
 }
 
 player_update_physics :: proc(scene: ^Scene, player: ^Player, dt: f32) {
-
-	if player.ground != nil && player.velocity.y >= 0 {
+	if player.ground != NO_ACTOR && player.velocity.y >= 0 {
 		if player.physics_state != .On_Ground {
 			player.physics_state = .On_Ground
 			player_reset_ground_physics(player)
@@ -268,8 +266,8 @@ player_update_action :: proc(player: ^Player) {
 			player.action = .Idle
 		}
 
-		if (player.horizontal_movement_direction_intended > 0 && player.wall_right != nil) ||
-		   (player.horizontal_movement_direction_intended < 0 && player.wall_left != nil) {
+		if (player.horizontal_movement_direction_intended > 0 && player.wall_right != NO_ACTOR) ||
+		   (player.horizontal_movement_direction_intended < 0 && player.wall_left != NO_ACTOR) {
 			player.action = .Pushing
 		}
 
@@ -292,8 +290,8 @@ player_update_action :: proc(player: ^Player) {
 		}
 
 		// wall sliding
-		if (player.horizontal_movement_direction_intended > 0 && player.wall_right != nil) ||
-		   (player.horizontal_movement_direction_intended < 0 && player.wall_left != nil) {
+		if (player.horizontal_movement_direction_intended > 0 && player.wall_right != NO_ACTOR) ||
+		   (player.horizontal_movement_direction_intended < 0 && player.wall_left != NO_ACTOR) {
 			if player.velocity.y >= 0 {
 				if player.action != .WallSliding && player.action != .WallSlidingLookingAway {
 					player.wall_hold = WALL_HOLD
@@ -424,9 +422,9 @@ player_update_position :: proc(scene: ^Scene, actor: Actor, player: ^Player, dt:
 		actor,
 		Player,
 		player,
-		&player.velocity.x,
+		player.velocity.x,
 		&player.remainder.x,
-		player_when_offsettempt_move_x,
+		player_attempt_move_x,
 		player_move_x,
 		player_collide_x,
 		dt,
@@ -436,22 +434,22 @@ player_update_position :: proc(scene: ^Scene, actor: Actor, player: ^Player, dt:
 		actor,
 		Player,
 		player,
-		&player.velocity.y,
+		player.velocity.y,
 		&player.remainder.y,
-		player_when_offsettempt_move_y,
+		player_attempt_move_y,
 		player_move_y,
 		player_collide_y,
 		dt,
 	)
 }
 
-player_when_offsettempt_move_x :: proc(
+player_attempt_move_x :: proc(
 	scene: ^Scene,
 	actor: Actor,
 	player: ^Player,
 	offset: f32,
 ) -> bool {
-	if player_collision_with_solid_when_offset(scene, actor, player, Vector2{offset, 0}) != nil {
+	if player_colliding_solid_actor_when_offset(scene, actor, player, Vector2{offset, 0}) != NO_ACTOR {
 		player_collide_x(player)
 		return false
 	}
@@ -459,27 +457,27 @@ player_when_offsettempt_move_x :: proc(
 	return true
 }
 
-player_when_offsettempt_move_y :: proc(
+player_attempt_move_y :: proc(
 	scene: ^Scene,
 	actor: Actor,
 	player: ^Player,
 	offset: f32,
 ) -> bool {
-	solid := player_collision_with_solid_when_offset(scene, actor, player, Vector2{0, offset})
+	solid_actor := player_colliding_solid_actor_when_offset(scene, actor, player, Vector2{0, offset})
 
-	if solid == nil && offset > 0 {
-		jumpthroughs := player_collision_with_jumpthrough_below(scene, player)
+	if solid_actor == NO_ACTOR && offset > 0 {
+		jumpthroughs := player_colliding_jumpthrough_actors_below(scene, player)
 		if len(jumpthroughs) > 0 {
-			solid = jumpthroughs[0]
+			solid_actor = jumpthroughs[0]
 			if player.drop_buffer > 0 {
 				append(&jumpthroughs_to_ignore, ..jumpthroughs[:])
-				solid = nil
+				solid_actor = NO_ACTOR
 				player.drop_buffer = 0
 			}
 		}
 	}
 
-	if solid != nil {
+	if solid_actor != NO_ACTOR {
 		if player.velocity.y < 0 {
 			player.excess_velocity_y = player.velocity.y * CEILING_HANG_FACTOR
 		}
@@ -509,7 +507,6 @@ player_move_y :: proc(scene: ^Scene, actor: Actor, player: ^Player, offset: f32)
 }
 
 player_move :: proc(scene: ^Scene, actor: Actor, player: ^Player, offset: Vector2) {
-
     transform := &scene.transforms[actor]
 	collider := &scene.colliders[actor]
 
@@ -518,7 +515,6 @@ player_move :: proc(scene: ^Scene, actor: Actor, player: ^Player, offset: Vector
 }
 
 player_render :: proc(scene: ^Scene, player: ^Player) {
-
 	transform := scene.transforms[player.actor]
 	collider := scene.colliders[player.actor]
 

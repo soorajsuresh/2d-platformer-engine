@@ -2,12 +2,8 @@ package engine
 
 import "core:math"
 
-Subpixel_Movement :: struct {
-    displacement_remainder: Vector2
-}
-
-subpixel_move :: proc(scene: ^Scene, actor: Actor, $T: typeid, object: ^T, speed: ^f32, remainder: ^f32, attempt_move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32) -> bool, move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32), collide: proc(object: ^T), dt: f32) {
-    remainder^ += speed^ * dt
+subpixel_move :: proc(scene: ^Scene, actor: Actor, $T: typeid, object: ^T, speed: f32, remainder: ^f32, attempt_move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32) -> bool, move: proc(scene: ^Scene, actor: Actor, object: ^T, offset: f32), collide: proc(object: ^T), dt: f32) {
+    remainder^ += speed * dt
     displacement := math.round(remainder^)
     if displacement != 0 {
         remainder^ -= displacement
@@ -22,8 +18,8 @@ subpixel_move :: proc(scene: ^Scene, actor: Actor, $T: typeid, object: ^T, speed
 
             displacement -= step
         }
-    } else if speed^ != 0 {
-        if !attempt_move(scene, actor, object, sign(speed^)) {
+    } else if speed != 0 {
+        if !attempt_move(scene, actor, object, sign(speed)) {
             collide(object)
         }
     }

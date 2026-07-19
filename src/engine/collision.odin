@@ -11,44 +11,44 @@ colliders_intersect_when_offset :: proc(c, d: Collider, offset: Vector2) -> bool
     return colliders_intersect(offset_collider, d)
 }
 
-collider_intersecting_solid_when_offset :: proc(scene: ^Scene, c: Collider, offset: Vector2, ignore: ^Block = nil) -> ^Block {
+collider_intersecting_solid_actor_when_offset :: proc(scene: ^Scene, c: Collider, offset: Vector2, ignore: ^Block = nil) -> Actor {
     offset_collider := c
     offset_collider.collision_rectangle.offset = add(offset_collider.collision_rectangle.offset, offset)
-    return collider_intersecting_solid(scene, offset_collider, ignore)
+    return collider_intersecting_solid_actor(scene, offset_collider, ignore)
 }
 
-collider_intersecting_solids_when_offset :: proc(scene: ^Scene, c: Collider, offset: Vector2, ignore: ^Block = nil) -> [dynamic]^Block {
+collider_intersecting_solid_actors_when_offset :: proc(scene: ^Scene, c: Collider, offset: Vector2, ignore: ^Block = nil) -> [dynamic]Actor {
     offset_collider := c
     offset_collider.collision_rectangle.offset = add(offset_collider.collision_rectangle.offset, offset)
-    return collider_intersecting_solids(scene, offset_collider, ignore)
+    return collider_intersecting_solid_actors(scene, offset_collider, ignore)
 }
 
 colliders_intersect :: proc(c, d: Collider) -> bool {
     return rectangles_intersect(c.collision_rectangle, d.collision_rectangle)
 }
 
-collider_intersecting_solid :: proc(scene: ^Scene, c: Collider, ignore: ^Block) -> ^Block {
-    return rectangle_intersecting_solid(scene, c.collision_rectangle, ignore)
+collider_intersecting_solid_actor :: proc(scene: ^Scene, c: Collider, ignore: ^Block) -> Actor {
+    return rectangle_intersecting_solid_actor(scene, c.collision_rectangle, ignore)
 }
 
-collider_intersecting_solids :: proc(scene: ^Scene, c: Collider, ignore: ^Block = nil) -> [dynamic]^Block {
-    return rectangle_intersecting_solids(scene, c.collision_rectangle, ignore)
+collider_intersecting_solid_actors :: proc(scene: ^Scene, c: Collider, ignore: ^Block = nil) -> [dynamic]Actor {
+    return rectangle_intersecting_solid_actors(scene, c.collision_rectangle, ignore)
 }
 
-rectangle_intersecting_solid :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> ^Block {
+rectangle_intersecting_solid_actor :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> Actor {
     for actor, &block in scene.blocks {
         if &block != ignore && block.type == .Solid && rectangles_intersect(r, scene.colliders[actor].collision_rectangle)  {
-            return &block
+            return actor
         }
     }
-    return nil
+    return NO_ACTOR
 }
 
-rectangle_intersecting_solids :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> [dynamic]^Block {
-    solids : [dynamic]^Block
+rectangle_intersecting_solid_actors :: proc(scene: ^Scene, r: CollisionRectangle, ignore: ^Block) -> [dynamic]Actor {
+    solids : [dynamic]Actor
     for actor, &block in scene.blocks {
         if &block != ignore && block.type == .Solid && rectangles_intersect(r, scene.colliders[actor].collision_rectangle) {
-            append(&solids, &block)
+            append(&solids, actor)
         }
     }
     return solids
